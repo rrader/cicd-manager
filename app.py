@@ -21,6 +21,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key-in-product
 COMPOSE_FILE = '/services/docker-compose.yml'
 SERVICES_DIR = '/services'
 USERS_FILE = '/app/users.json'
+DOCKER_COMPOSE_CMD = 'docker-compose'  # Use 'docker-compose' or 'docker compose'
 
 def load_users():
     """Load users from JSON file"""
@@ -223,7 +224,7 @@ def docker_build(service):
     if not service_info['has_build']:
         return jsonify({'success': False, 'output': 'Service has no build configuration'})
     
-    command = f'docker compose -f {COMPOSE_FILE} build {service}'
+    command = f'{DOCKER_COMPOSE_CMD} -f {COMPOSE_FILE} build {service}'
     result = run_command(command)
     return jsonify(result)
 
@@ -241,7 +242,7 @@ def docker_restart(service):
     if service not in services:
         return jsonify({'success': False, 'output': 'Service not found'})
     
-    command = f'docker compose -f {COMPOSE_FILE} restart {service}'
+    command = f'{DOCKER_COMPOSE_CMD} -f {COMPOSE_FILE} restart {service}'
     result = run_command(command)
     return jsonify(result)
 
@@ -259,7 +260,7 @@ def docker_up(service):
     if service not in services:
         return jsonify({'success': False, 'output': 'Service not found'})
     
-    command = f'docker compose -f {COMPOSE_FILE} up -d {service}'
+    command = f'{DOCKER_COMPOSE_CMD} -f {COMPOSE_FILE} up -d {service}'
     result = run_command(command)
     return jsonify(result)
 
@@ -277,7 +278,7 @@ def docker_status(service):
     if service not in services:
         return jsonify({'success': False, 'output': 'Service not found'})
     
-    command = f'docker compose -f {COMPOSE_FILE} ps {service}'
+    command = f'{DOCKER_COMPOSE_CMD} -f {COMPOSE_FILE} ps {service}'
     result = run_command(command)
     return jsonify(result)
 
@@ -295,7 +296,7 @@ def docker_logs(service):
     if service not in services:
         return jsonify({'success': False, 'output': 'Service not found'})
     
-    command = f'docker compose -f {COMPOSE_FILE} logs --tail=100 {service}'
+    command = f'{DOCKER_COMPOSE_CMD} -f {COMPOSE_FILE} logs --tail=100 {service}'
     result = run_command(command)
     return jsonify(result)
 
