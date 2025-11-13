@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - CI/CD Manager{% endblock %}
+
+{% block extra_style %}
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.service-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+}
+
+.service-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.service-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #333;
+    margin-left: 0.5rem;
+}
+
+.service-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.btn {
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-git {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-build {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-restart {
+    background: #8b5cf6;
+    color: white;
+}
+
+.btn-up {
+    background: #10b981;
+    color: white;
+}
+
+.btn-status {
+    background: #6366f1;
+    color: white;
+    grid-column: span 2;
+}
+
+.output-box {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #1e293b;
+    color: #e2e8f0;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.output-box.show {
+    display: block;
+    animation: slideDown 0.3s ease-out;
+}
+
+.output-box.success {
+    border-left: 4px solid #10b981;
+}
+
+.output-box.error {
+    border-left: 4px solid #ef4444;
+}
+
+@keyframes slideDown {
+    from {
+        max-height: 0;
+        opacity: 0;
+    }
+    to {
+        max-height: 200px;
+        opacity: 1;
+    }
+}
+
+.no-build {
+    color: #6b7280;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 1rem;
+    background: #f3f4f6;
+    border-radius: 5px;
+    margin-top: 0.5rem;
+}
+
+.spinner {
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <h2 style="color: white; margin-bottom: 0.5rem;">📦 Docker Compose Services</h2>
+    <p style="color: rgba(255,255,255,0.9); font-size: 0.95rem;">
+        Managing: <code style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 3px;">{{ compose_file }}</code>
+    </p>
+</div>
+
+<div class="services-grid">
+    {% for service_name, service_info in services.items() %}
+    <div class="service-card" id="service-{{ service_name }}">
+        <div class="service-header">
+            <span style="font-size: 2rem;">🐳</span>
+            <div class="service-name">{{ service_name }}</div>
+        </div>
+        
+        <div class="service-actions">
+            {% if service_info.has_build and service_info.build_context %}
+            <button class="btn btn-git" onclick="runAction('{{ service_name }}', 'git-pull')" id="btn-git-{{ service_name }}">
+                📥 Git Pull
+            </button>
+            <button class="btn btn-build" onclick="runAction('{{ service_name }}', 'docker-build')" id="btn-build-{{ service_name }}">
+                🔨 Build
+            </button>
+            {% else %}
+            <div class="no-build" style="grid-column: span 2;">No build configuration</div>
+            {% endif %}
+            <button class="btn btn-restart" onclick="runAction('{{ service_name }}', 'docker-restart')" id="btn-restart-{{ service_name }}">
+                🔄 Restart
+            </button>
+            <button class="btn btn-up" onclick="runAction('{{ service_name }}', 'docker-up')" id="btn-up-{{ service_name }}">
+                ▶️ Up
+            </button>
+            <button class="btn btn-status" onclick="runAction('{{ service_name }}', 'docker-status')" id="btn-status-{{ service_name }}">
+                📊 Status
+            </button>
+        </div>
+        
+        <div class="output-box" id="output-{{ service_name }}"></div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+function runAction(service, action) {
+    const outputBox = document.getElementById(`output-${service}`);
+    const buttons = document.querySelectorAll(`#service-${service} .btn`);
+    const actionBtn = document.getElementById(`btn-${action}-${service}`);
+    
+    // Disable all buttons for this service
+    buttons.forEach(btn => btn.disabled = true);
+    
+    // Show spinner in button
+    if (actionBtn) {
+        const originalText = actionBtn.innerHTML;
+        actionBtn.innerHTML = '<div class="spinner"></div> Running...';
+    }
+    
+    // Show output box with loading message
+    outputBox.textContent = 'Running command...';
+    outputBox.className = 'output-box show';
+    
+    fetch(`/api/${action}/${service}`)
+        .then(response => response.json())
+        .then(data => {
+            outputBox.textContent = data.output || 'No output';
+            outputBox.className = `output-box show ${data.success ? 'success' : 'error'}`;
+            
+            // Re-enable buttons
+            buttons.forEach(btn => btn.disabled = false);
+            
+            // Restore button text
+            if (actionBtn) {
+                actionBtn.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            outputBox.textContent = `Error: ${error.message}`;
+            outputBox.className = 'output-box show error';
+            buttons.forEach(btn => btn.disabled = false);
+            
+            if (actionBtn) {
+                actionBtn.innerHTML = originalText;
+            }
+        });
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,20 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password": "change-me",
+      "services": ["*"]
+    },
+    {
+      "username": "developer",
+      "password": "change-me",
+      "services": ["light-bot", "light-bot-staging", "po2bot", "po2bot-staging"]
+    },
+    {
+      "username": "limited-user",
+      "password": "change-me",
+      "services": ["roster"]
+    }
+  ]
+}
+
