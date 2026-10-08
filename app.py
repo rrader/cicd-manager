@@ -16,6 +16,7 @@ import yaml
 import json
 import urllib.request
 import urllib.error
+import base64
 from datetime import datetime, timezone
 from functools import wraps
 import psutil
@@ -40,6 +41,92 @@ DOCKER_COMPOSE_CMD = os.environ.get('DOCKER_COMPOSE_CMD', 'docker compose')
 LIGHT_BOT_URL = os.environ.get('LIGHT_BOT_URL', 'http://light-bot:5000')
 PO2BOT_URL = os.environ.get('PO2BOT_URL', 'http://po2bot:8088')
 MEET_STREAMER_URL = os.environ.get('MEET_STREAMER_URL', 'http://meet-streamer:8090')
+TEMPLATES_FILE = os.environ.get('TEMPLATES_FILE', os.path.join(SERVICES_DIR, 'cicd-manager', 'banner_templates.json'))
+
+DEFAULT_TEMPLATES = [
+    {
+        "id": "stem_club",
+        "name": "STEM Гурток (Стандартний)",
+        "badge": "ORT STEM CLUB • ONLINE",
+        "title": "STEM Гурток «Інженерія ШІ»",
+        "schedule": "Понеділок, Середа, П'ятниця • 16:30 – 18:00",
+        "subtitle": "Заняття почнеться незабаром",
+        "qr": "https://meet.google.com/moj-zweh-zpq",
+        "bg_image": ""
+    },
+    {
+        "id": "break",
+        "name": "Перерва 10 хв",
+        "badge": "ПЕРЕРВА • BREAK",
+        "title": "STEM Гурток «Інженерія ШІ»",
+        "schedule": "Заняття продовжиться через кілька хвилин",
+        "subtitle": "Зробіть чай та розімніться ☕",
+        "qr": "",
+        "bg_image": ""
+    },
+    {
+        "id": "tech_pause",
+        "name": "Технічна пауза",
+        "badge": "ТЕХНІЧНА ПАУЗА",
+        "title": "Налаштування обладнання",
+        "schedule": "Трансляція відновиться найближчим часом",
+        "subtitle": "Будь ласка, залишайтеся на зв'язку",
+        "qr": "",
+        "bg_image": ""
+    },
+    {
+        "id": "consultation",
+        "name": "Консультації та Q&A",
+        "badge": "Q&A SESSION",
+        "title": "Консультації та захист проєктів",
+        "schedule": "Вільний мікрофон для запитань",
+        "subtitle": "Піднімайте руку в Meet для черги ✋",
+        "qr": "https://meet.google.com/moj-zweh-zpq",
+        "bg_image": ""
+    }
+]
+
+
+def load_banner_templates():
+    paths = [TEMPLATES_FILE, '/app/banner_templates.json']
+    for p in paths:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and len(data) > 0:
+                        return data
+            except Exception as e:
+                print(f"Error loading templates from {p}: {e}")
+    return DEFAULT_TEMPLATES
+
+
+def save_banner_templates(templates):
+    paths = [TEMPLATES_FILE, '/app/banner_templates.json']
+    saved = False
+    for p in paths:
+        try:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, 'w', encoding='utf-8') as f:
+                json.dump(templates, f, ensure_ascii=False, indent=2)
+            saved = True
+        except Exception as e:
+            print(f"Could not save templates to {p}: {e}")
+    return saved
+
+
+def exec_host_command(cmd, timeout=30):
+    """Execute command on host system (using nsenter via docker if in container)."""
+    if os.path.exists('/var/run/docker.sock') and os.path.exists('/host/root'):
+        docker_cmd = (
+            f"docker run --rm --privileged --pid=host "
+            f"-v /opt/school-meet-streamer:/opt/school-meet-streamer alpine "
+            f"nsenter -t 1 -m -u -n -i {cmd}"
+        )
+        return run_command(docker_cmd, timeout=timeout)
+    else:
+        return run_command(cmd, timeout=timeout)
+
 
 # Prime CPU percent reading
 try:
@@ -239,8 +326,9 @@ def logout():
 
 
 @app.route('/dashboard')
+@app.route('/dashboard/<tab>')
 @login_required
-def dashboard():
+def dashboard(tab='metrics'):
     """Display modern dashboard with tabs and services."""
     username = session.get('username')
     all_services = get_services()
@@ -252,7 +340,8 @@ def dashboard():
     return render_template('dashboard.html', 
                            services=user_services, 
                            compose_file=COMPOSE_FILE,
-                           username=username)
+                           username=username,
+                           active_tab=tab)
 
 
 # ==========================================
@@ -502,11 +591,12 @@ def api_meet_chat():
     status_code, resp = http_request(
         f'{MEET_STREAMER_URL}/chat',
         method='POST',
-        data={'message': message},
+        data={'text': message, 'message': message},
         timeout=10
     )
+    is_ok = status_code == 200 and isinstance(resp, dict) and (resp.get('ok') is True or resp.get('status') == 'ok')
     return jsonify({
-        'success': status_code == 200 and isinstance(resp, dict) and resp.get('status') == 'ok',
+        'success': is_ok,
         'response': resp
     })
 
@@ -541,6 +631,188 @@ def api_meet_leave():
     return jsonify({
         'success': status_code == 200,
         'response': resp
+    })
+
+
+@app.route('/api/meet/templates', methods=['GET'])
+@login_required
+def api_meet_templates_get():
+    """Get saved banner templates."""
+    return jsonify({
+        'success': True,
+        'templates': load_banner_templates()
+    })
+
+
+@app.route('/api/meet/templates', methods=['POST'])
+@login_required
+def api_meet_templates_save():
+    """Save or update banner template."""
+    req_data = request.get_json(silent=True) or {}
+    template = req_data.get('template')
+    templates = req_data.get('templates')
+
+    current_templates = load_banner_templates()
+
+    if templates and isinstance(templates, list):
+        current_templates = templates
+    elif template and isinstance(template, dict):
+        tpl_id = template.get('id') or f"custom_{int(datetime.now(timezone.utc).timestamp())}"
+        template['id'] = tpl_id
+        found = False
+        for idx, t in enumerate(current_templates):
+            if t.get('id') == tpl_id:
+                current_templates[idx] = template
+                found = True
+                break
+        if not found:
+            current_templates.append(template)
+
+    save_banner_templates(current_templates)
+    return jsonify({
+        'success': True,
+        'templates': current_templates
+    })
+
+
+@app.route('/api/meet/templates/<template_id>', methods=['DELETE'])
+@login_required
+def api_meet_templates_delete(template_id):
+    """Delete a template by ID."""
+    current_templates = load_banner_templates()
+    filtered = [t for t in current_templates if t.get('id') != template_id]
+    if len(filtered) == 0:
+        filtered = DEFAULT_TEMPLATES
+    save_banner_templates(filtered)
+    return jsonify({
+        'success': True,
+        'templates': filtered
+    })
+
+
+@app.route('/api/meet/poster/preview', methods=['POST'])
+@login_required
+def api_meet_poster_preview():
+    """Generate instant PNG preview of banner and return base64 data URI."""
+    data = request.get_json(silent=True) or {}
+    title = data.get('title', 'STEM Гурток «Інженерія ШІ»')
+    schedule = data.get('schedule', '')
+    subtitle = data.get('subtitle', '')
+    badge = data.get('badge', 'ORT STEM CLUB • ONLINE')
+    qr = data.get('qr', '')
+    bg_image = data.get('bg_image', '')
+    image_data = data.get('image_data', '')
+
+    host_tmp_dir = '/tmp'
+    container_tmp_dir = '/host/root/tmp' if os.path.exists('/host/root/tmp') else '/tmp'
+    preview_file_name = f"meet_preview_{int(datetime.now(timezone.utc).timestamp())}.png"
+    host_preview_png = f"{host_tmp_dir}/{preview_file_name}"
+    container_preview_png = f"{container_tmp_dir}/{preview_file_name}"
+
+    custom_bg_arg = ""
+    if image_data and ',' in image_data:
+        try:
+            header, b64data = image_data.split(',', 1)
+            raw_bytes = base64.b64decode(b64data)
+            bg_name = f"custom_bg_{int(datetime.now(timezone.utc).timestamp())}.png"
+            container_bg_path = f"{container_tmp_dir}/{bg_name}"
+            host_bg_path = f"{host_tmp_dir}/{bg_name}"
+            with open(container_bg_path, 'wb') as f:
+                f.write(raw_bytes)
+            custom_bg_arg = f"--bg-image '{host_bg_path}'"
+        except Exception as e:
+            print(f"Failed to decode image_data: {e}")
+    elif bg_image:
+        custom_bg_arg = f"--bg-image '{bg_image}'"
+
+    qr_arg = f"--qr '{qr}'" if qr else ""
+    script_path = "/opt/school-meet-streamer/make_stream.py"
+
+    cmd = (
+        f"python3 {script_path} --preview '{host_preview_png}' "
+        f"--title '{title}' --schedule '{schedule}' --subtitle '{subtitle}' "
+        f"--badge '{badge}' {qr_arg} {custom_bg_arg}"
+    )
+
+    res = exec_host_command(cmd, timeout=15)
+    if not res['success'] or not os.path.exists(container_preview_png):
+        return jsonify({
+            'success': False,
+            'error': f"Failed to generate preview: {res['output']}"
+        }), 500
+
+    try:
+        with open(container_preview_png, 'rb') as f:
+            png_bytes = f.read()
+        b64_img = base64.b64encode(png_bytes).decode('ascii')
+        try:
+            os.remove(container_preview_png)
+        except Exception:
+            pass
+        return jsonify({
+            'success': True,
+            'image': f"data:image/png;base64,{b64_img}"
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/meet/poster/apply', methods=['POST'])
+@login_required
+def api_meet_poster_apply():
+    """Generate Y4M stream on host, update /opt/school-meet-streamer/stream.y4m, and reload camera."""
+    data = request.get_json(silent=True) or {}
+    title = data.get('title', 'STEM Гурток «Інженерія ШІ»')
+    schedule = data.get('schedule', '')
+    subtitle = data.get('subtitle', '')
+    badge = data.get('badge', 'ORT STEM CLUB • ONLINE')
+    qr = data.get('qr', '')
+    bg_image = data.get('bg_image', '')
+    image_data = data.get('image_data', '')
+
+    container_tmp_dir = '/host/root/tmp' if os.path.exists('/host/root/tmp') else '/tmp'
+    host_tmp_dir = '/tmp'
+
+    custom_bg_arg = ""
+    if image_data and ',' in image_data:
+        try:
+            header, b64data = image_data.split(',', 1)
+            raw_bytes = base64.b64decode(b64data)
+            bg_name = "meet_custom_bg.png"
+            container_bg_path = f"{container_tmp_dir}/{bg_name}"
+            host_bg_path = f"{host_tmp_dir}/{bg_name}"
+            with open(container_bg_path, 'wb') as f:
+                f.write(raw_bytes)
+            custom_bg_arg = f"--bg-image '{host_bg_path}'"
+        except Exception as e:
+            print(f"Failed to decode image_data: {e}")
+    elif bg_image:
+        custom_bg_arg = f"--bg-image '{bg_image}'"
+
+    qr_arg = f"--qr '{qr}'" if qr else ""
+    script_path = "/opt/school-meet-streamer/make_stream.py"
+    target_y4m = "/opt/school-meet-streamer/stream.y4m"
+
+    cmd = (
+        f"python3 {script_path} --default "
+        f"--title '{title}' --schedule '{schedule}' --subtitle '{subtitle}' "
+        f"--badge '{badge}' {qr_arg} {custom_bg_arg} --output '{target_y4m}'"
+    )
+
+    res = exec_host_command(cmd, timeout=30)
+    if not res['success']:
+        return jsonify({
+            'success': False,
+            'error': f"Failed to generate stream: {res['output']}"
+        }), 500
+
+    # Toggle camera in meeting to reload fake video capture stream
+    cam_status, cam_resp = http_request(f"{MEET_STREAMER_URL}/camera/toggle", method='POST', timeout=10)
+
+    return jsonify({
+        'success': True,
+        'message': 'Заставку успішно згенеровано та потік перезавантажено!',
+        'camera_reload': cam_resp
     })
 
 

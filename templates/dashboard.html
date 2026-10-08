@@ -594,7 +594,6 @@
             <p>Автономний бот для трансляцій та інженерного клубу в Google Meet</p>
         </div>
         <div class="action-bar">
-            <a href="https://meet.rmn.pp.ua" target="_blank" class="btn btn-build">🖥 KasmVNC Web UI</a>
             <button class="btn btn-logs" onclick="openLogModal('Логи Meet Streamer', 'meet-streamer', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('meet-streamer', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchMeet()">🔄 Оновити</button>
@@ -653,6 +652,92 @@
                 <button class="btn btn-up" onclick="sendMeetChatMessage()" id="btn-meet-send-chat">📤 Надіслати</button>
             </div>
             <div id="meet-chat-result" style="font-size: 0.8rem; margin-top: 0.25rem;"></div>
+        </div>
+    </div>
+
+    <!-- BANNER & TEMPLATES CARD -->
+    <div class="panel-card" style="margin-top: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;"><span>🎨</span> Заставка та Банер Стріму</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">
+                    Керуйте текстом заставки, QR-кодом та шаблонами без перезапуску контейнера.
+                </p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <label style="font-size: 0.85rem; color: var(--text-muted); margin-right: 0.25rem;">Шаблон:</label>
+                <select id="poster-template-select" onchange="onTemplateSelected()" style="background: #0f172a; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem; min-width: 220px;">
+                    <!-- Populated dynamically -->
+                </select>
+                <button class="btn btn-logs btn-sm" onclick="addNewTemplatePrompt()" title="Створити новий шаблон">➕ Новий</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteCurrentTemplate()" title="Видалити поточний шаблон" id="btn-delete-template">🗑</button>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.5rem; align-items: start;">
+            <!-- Form Controls -->
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Назва шаблону</label>
+                    <input type="text" id="poster-name" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="Назва шаблону (наприклад: STEM Гурток)">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Бейдж (верхній рядок)</label>
+                        <input type="text" id="poster-badge" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="ORT STEM CLUB • ONLINE">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">QR-код (URL або текст)</label>
+                        <input type="text" id="poster-qr" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="https://meet.google.com/... (необов'язково)">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Головний заголовок</label>
+                    <input type="text" id="poster-title" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="STEM Гурток «Інженерія ШІ»">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Рядок розкладу</label>
+                    <input type="text" id="poster-schedule" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="Понеділок, Середа, П'ятниця • 16:30 – 18:00">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Підзаголовок / Статус</label>
+                    <input type="text" id="poster-subtitle" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="Заняття почнеться незабаром">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Фонове зображення (необов'язково)</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="text" id="poster-bg-image" class="chat-input" style="flex: 1; border-radius: 6px;" placeholder="URL, шлях на сервері або оберіть файл">
+                        <input type="file" id="poster-file-input" accept="image/*" style="display: none;" onchange="handleImageFileSelected(event)">
+                        <button type="button" class="btn btn-logs" onclick="document.getElementById('poster-file-input').click()" style="white-space: nowrap;">📁 Обрати файл</button>
+                    </div>
+                    <div id="poster-file-name" style="font-size: 0.78rem; color: #38bdf8; margin-top: 0.25rem;"></div>
+                </div>
+
+                <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="saveCurrentTemplate()" style="background: #334155; color: #fff; padding: 0.6rem 1.1rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 600;">💾 Зберегти шаблон</button>
+                    <button class="btn btn-build" onclick="previewPoster()" id="btn-preview-poster" style="padding: 0.6rem 1.1rem; font-weight: 600;">👁 Переглянути</button>
+                    <button class="btn btn-up" onclick="applyPosterToStream()" id="btn-apply-poster" style="padding: 0.6rem 1.25rem; font-weight: 600;">🚀 Застосувати до стріму</button>
+                </div>
+                <div id="poster-status-msg" style="font-size: 0.85rem; margin-top: 0.25rem;"></div>
+            </div>
+
+            <!-- Preview Card -->
+            <div style="background: #0f172a; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; min-height: 280px; justify-content: center; align-items: center; text-align: center;">
+                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.5rem;">
+                    <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted);">Попередній перегляд (1280x720)</span>
+                    <span id="preview-timestamp" style="font-size: 0.75rem; color: var(--text-dim);"></span>
+                </div>
+                <img id="poster-preview-img" src="" alt="Попередній перегляд банера" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #334155; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                <div id="poster-preview-placeholder" style="color: var(--text-dim); padding: 3rem 1rem;">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🖼</div>
+                    <p style="font-size: 0.88rem;">Натисніть «👁 Переглянути», щоб побачити реальний вигляд заставки</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1028,12 +1113,230 @@ function sendMeetLeave() {
         .catch(err => alert(`Помилка: ${err.message}`));
 }
 
+let bannerTemplates = [];
+let currentUploadedImageData = '';
+
+function fetchBannerTemplates() {
+    fetch('/api/meet/templates')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.templates) {
+                bannerTemplates = data.templates;
+                populateTemplateDropdown(bannerTemplates);
+            }
+        })
+        .catch(err => console.error('Failed to load templates:', err));
+}
+
+function populateTemplateDropdown(templates, selectedId = null) {
+    const sel = document.getElementById('poster-template-select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    templates.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name || t.id;
+        sel.appendChild(opt);
+    });
+
+    if (selectedId) {
+        sel.value = selectedId;
+    } else if (templates.length > 0) {
+        sel.value = templates[0].id;
+    }
+    onTemplateSelected();
+}
+
+function onTemplateSelected() {
+    const sel = document.getElementById('poster-template-select');
+    if (!sel) return;
+    const selectedId = sel.value;
+    const tpl = bannerTemplates.find(t => t.id === selectedId);
+    if (!tpl) return;
+
+    document.getElementById('poster-name').value = tpl.name || '';
+    document.getElementById('poster-badge').value = tpl.badge || 'ORT STEM CLUB • ONLINE';
+    document.getElementById('poster-title').value = tpl.title || 'STEM Гурток «Інженерія ШІ»';
+    document.getElementById('poster-schedule').value = tpl.schedule || '';
+    document.getElementById('poster-subtitle').value = tpl.subtitle || '';
+    document.getElementById('poster-qr').value = tpl.qr || '';
+    document.getElementById('poster-bg-image').value = tpl.bg_image || '';
+    currentUploadedImageData = '';
+    const fnEl = document.getElementById('poster-file-name');
+    if (fnEl) fnEl.textContent = '';
+}
+
+function handleImageFileSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        currentUploadedImageData = e.target.result;
+        const fnEl = document.getElementById('poster-file-name');
+        if (fnEl) fnEl.textContent = `✅ Обрано: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+    };
+    reader.readAsDataURL(file);
+}
+
+function addNewTemplatePrompt() {
+    const name = prompt('Введіть назву нового шаблону:');
+    if (!name || !name.trim()) return;
+    const newId = 'tpl_' + Date.now();
+    const newTpl = {
+        id: newId,
+        name: name.trim(),
+        badge: document.getElementById('poster-badge').value || 'ORT STEM CLUB • ONLINE',
+        title: document.getElementById('poster-title').value || 'STEM Гурток «Інженерія ШІ»',
+        schedule: document.getElementById('poster-schedule').value || '',
+        subtitle: document.getElementById('poster-subtitle').value || '',
+        qr: document.getElementById('poster-qr').value || '',
+        bg_image: document.getElementById('poster-bg-image').value || ''
+    };
+    bannerTemplates.push(newTpl);
+    populateTemplateDropdown(bannerTemplates, newId);
+    saveCurrentTemplate();
+}
+
+function deleteCurrentTemplate() {
+    const sel = document.getElementById('poster-template-select');
+    if (!sel || !sel.value) return;
+    const curId = sel.value;
+    if (bannerTemplates.length <= 1) {
+        alert('Не можна видалити останній шаблон.');
+        return;
+    }
+    if (!confirm(`Видалити шаблон "${sel.options[sel.selectedIndex].text}"?`)) return;
+
+    fetch(`/api/meet/templates/${curId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.templates) {
+                bannerTemplates = data.templates;
+                populateTemplateDropdown(bannerTemplates);
+                showPosterStatus('✅ Шаблон видалено', '#34d399');
+            }
+        })
+        .catch(err => showPosterStatus(`❌ Помилка: ${err.message}`, '#f87171'));
+}
+
+function saveCurrentTemplate() {
+    const sel = document.getElementById('poster-template-select');
+    if (!sel) return;
+    const curId = sel.value || ('tpl_' + Date.now());
+    const name = document.getElementById('poster-name').value.trim() || 'Без назви';
+    const badge = document.getElementById('poster-badge').value.trim();
+    const title = document.getElementById('poster-title').value.trim();
+    const schedule = document.getElementById('poster-schedule').value.trim();
+    const subtitle = document.getElementById('poster-subtitle').value.trim();
+    const qr = document.getElementById('poster-qr').value.trim();
+    const bg_image = document.getElementById('poster-bg-image').value.trim();
+
+    const tpl = { id: curId, name, badge, title, schedule, subtitle, qr, bg_image };
+
+    fetch('/api/meet/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: tpl })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success && data.templates) {
+            bannerTemplates = data.templates;
+            populateTemplateDropdown(bannerTemplates, curId);
+            showPosterStatus('💾 Шаблон успішно збережено!', '#34d399');
+        } else {
+            showPosterStatus('❌ Помилка збереження шаблону', '#f87171');
+        }
+    })
+    .catch(err => showPosterStatus(`❌ Помилка: ${err.message}`, '#f87171'));
+}
+
+function getPosterFormData() {
+    return {
+        badge: document.getElementById('poster-badge').value.trim(),
+        title: document.getElementById('poster-title').value.trim(),
+        schedule: document.getElementById('poster-schedule').value.trim(),
+        subtitle: document.getElementById('poster-subtitle').value.trim(),
+        qr: document.getElementById('poster-qr').value.trim(),
+        bg_image: document.getElementById('poster-bg-image').value.trim(),
+        image_data: currentUploadedImageData
+    };
+}
+
+function previewPoster() {
+    const btn = document.getElementById('btn-preview-poster');
+    if (btn) btn.disabled = true;
+    showPosterStatus('Генерація попереднього перегляду...', '#94a3b8');
+
+    fetch('/api/meet/poster/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getPosterFormData())
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (btn) btn.disabled = false;
+        if (data.success && data.image) {
+            const img = document.getElementById('poster-preview-img');
+            const placeholder = document.getElementById('poster-preview-placeholder');
+            const ts = document.getElementById('preview-timestamp');
+            img.src = data.image;
+            img.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
+            if (ts) ts.textContent = `Оновлено: ${new Date().toLocaleTimeString('uk-UA')}`;
+            showPosterStatus('✅ Попередній перегляд готовий', '#34d399');
+        } else {
+            showPosterStatus(`❌ Помилка: ${data.error || 'не вдалося створити прев\'ю'}`, '#f87171');
+        }
+    })
+    .catch(err => {
+        if (btn) btn.disabled = false;
+        showPosterStatus(`❌ Помилка: ${err.message}`, '#f87171');
+    });
+}
+
+function applyPosterToStream() {
+    if (!confirm('Застосувати цю заставку до активного відеопотоку Google Meet?')) return;
+    const btn = document.getElementById('btn-apply-poster');
+    if (btn) btn.disabled = true;
+    showPosterStatus('Генерація потоку stream.y4m та оновлення камери...', '#38bdf8');
+
+    fetch('/api/meet/poster/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getPosterFormData())
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (btn) btn.disabled = false;
+        if (data.success) {
+            showPosterStatus('🎉 Заставку успішно оновлено на стрімі!', '#34d399');
+            window.fetchMeet();
+            previewPoster();
+        } else {
+            showPosterStatus(`❌ Помилка: ${data.error || 'не вдалося оновити стрім'}`, '#f87171');
+        }
+    })
+    .catch(err => {
+        if (btn) btn.disabled = false;
+        showPosterStatus(`❌ Помилка: ${err.message}`, '#f87171');
+    });
+}
+
+function showPosterStatus(msg, color) {
+    const el = document.getElementById('poster-status-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || 'var(--text-muted)';
+}
+
 // Initial fetch & 5s interval loop
 document.addEventListener('DOMContentLoaded', () => {
     fetchMetrics();
     fetchLightBot();
     fetchPo2Bot();
     fetchMeet();
+    fetchBannerTemplates();
 
     setInterval(() => {
         if (currentActiveTab === 'metrics') fetchMetrics();
