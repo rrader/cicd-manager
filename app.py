@@ -1285,12 +1285,14 @@ def api_syncthing_status():
     vault_size = "--"
     conflict_files = []
     try:
-        cmd = "du -sh /root/services/obsidian-vault-personal 2>/dev/null | cut -f1; find /root/services/obsidian-vault-personal -name '*.sync-conflict-*' ! -path '*/.stversions/*' 2>/dev/null"
+        cmd = "sh -c \"du -sh /root/services/obsidian-vault-personal 2>/dev/null; find /root/services/obsidian-vault-personal -name '*.sync-conflict-*' ! -path '*/.stversions/*' 2>/dev/null\""
         res = exec_host_command(cmd, timeout=5)
         if res.get('success'):
             lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
             if lines:
-                vault_size = lines[0]
+                parts = lines[0].split()
+                if parts:
+                    vault_size = parts[0]
                 conflict_files = [p.replace('/root/services/obsidian-vault-personal/', '') for p in lines[1:] if p]
     except Exception as e:
         print(f"Error checking Syncthing status: {e}")
@@ -1323,7 +1325,7 @@ def api_vaultwarden_status():
     db_size = "--"
     last_backup = None
     try:
-        cmd = "ls -lh /root/services/bw-data/db.sqlite3 2>/dev/null | awk '{print $5}'; ls -lht /root/services/bw-data-backup* 2>/dev/null | head -n 1 | awk '{print $5, $6, $7, $8, $9}'"
+        cmd = "sh -c \"ls -lh /root/services/bw-data/db.sqlite3 2>/dev/null | awk '{print $5}'; ls -lh /root/services/bw-data-backup* 2>/dev/null | head -n 1 | awk '{print $5, $6, $7, $8, $9}'\""
         res = exec_host_command(cmd, timeout=5)
         if res.get('success'):
             lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
