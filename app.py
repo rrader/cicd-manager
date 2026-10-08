@@ -703,38 +703,55 @@ def api_meet_poster_preview():
     bg_image = data.get('bg_image', '')
     image_data = data.get('image_data', '')
 
-    host_tmp_dir = '/tmp'
     container_tmp_dir = '/host/root/tmp' if os.path.exists('/host/root/tmp') else '/tmp'
-    preview_file_name = f"meet_preview_{int(datetime.now(timezone.utc).timestamp())}.png"
+    host_tmp_dir = '/tmp'
+    ts = int(datetime.now(timezone.utc).timestamp())
+    preview_file_name = f"meet_preview_{ts}.png"
     host_preview_png = f"{host_tmp_dir}/{preview_file_name}"
     container_preview_png = f"{container_tmp_dir}/{preview_file_name}"
 
-    custom_bg_arg = ""
+    host_bg_path = bg_image
     if image_data and ',' in image_data:
         try:
             header, b64data = image_data.split(',', 1)
             raw_bytes = base64.b64decode(b64data)
-            bg_name = f"custom_bg_{int(datetime.now(timezone.utc).timestamp())}.png"
+            bg_name = f"custom_bg_{ts}.png"
             container_bg_path = f"{container_tmp_dir}/{bg_name}"
-            host_bg_path = f"{host_tmp_dir}/{bg_name}"
             with open(container_bg_path, 'wb') as f:
                 f.write(raw_bytes)
-            custom_bg_arg = f"--bg-image '{host_bg_path}'"
+            host_bg_path = f"{host_tmp_dir}/{bg_name}"
         except Exception as e:
             print(f"Failed to decode image_data: {e}")
-    elif bg_image:
-        custom_bg_arg = f"--bg-image '{bg_image}'"
 
-    qr_arg = f"--qr '{qr}'" if qr else ""
-    script_path = "/opt/school-meet-streamer/make_stream.py"
+    config_name = f"poster_cfg_{ts}.json"
+    container_cfg_path = f"{container_tmp_dir}/{config_name}"
+    host_cfg_path = f"{host_tmp_dir}/{config_name}"
 
-    cmd = (
-        f"python3 {script_path} --preview '{host_preview_png}' "
-        f"--title '{title}' --schedule '{schedule}' --subtitle '{subtitle}' "
-        f"--badge '{badge}' {qr_arg} {custom_bg_arg}"
-    )
+    cfg = {
+        "title": title,
+        "schedule": schedule,
+        "subtitle": subtitle,
+        "badge": badge,
+        "qr": qr,
+        "bg_image": host_bg_path,
+        "preview": host_preview_png
+    }
 
+    try:
+        with open(container_cfg_path, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, ensure_ascii=False)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Failed to write config: {e}"}), 500
+
+    cmd = f"python3 /opt/school-meet-streamer/make_stream.py --config {host_cfg_path}"
     res = exec_host_command(cmd, timeout=15)
+
+    try:
+        if os.path.exists(container_cfg_path):
+            os.remove(container_cfg_path)
+    except Exception:
+        pass
+
     if not res['success'] or not os.path.exists(container_preview_png):
         return jsonify({
             'success': False,
@@ -772,34 +789,51 @@ def api_meet_poster_apply():
 
     container_tmp_dir = '/host/root/tmp' if os.path.exists('/host/root/tmp') else '/tmp'
     host_tmp_dir = '/tmp'
+    ts = int(datetime.now(timezone.utc).timestamp())
 
-    custom_bg_arg = ""
+    host_bg_path = bg_image
     if image_data and ',' in image_data:
         try:
             header, b64data = image_data.split(',', 1)
             raw_bytes = base64.b64decode(b64data)
             bg_name = "meet_custom_bg.png"
             container_bg_path = f"{container_tmp_dir}/{bg_name}"
-            host_bg_path = f"{host_tmp_dir}/{bg_name}"
             with open(container_bg_path, 'wb') as f:
                 f.write(raw_bytes)
-            custom_bg_arg = f"--bg-image '{host_bg_path}'"
+            host_bg_path = f"{host_tmp_dir}/{bg_name}"
         except Exception as e:
             print(f"Failed to decode image_data: {e}")
-    elif bg_image:
-        custom_bg_arg = f"--bg-image '{bg_image}'"
 
-    qr_arg = f"--qr '{qr}'" if qr else ""
-    script_path = "/opt/school-meet-streamer/make_stream.py"
+    config_name = f"poster_cfg_{ts}.json"
+    container_cfg_path = f"{container_tmp_dir}/{config_name}"
+    host_cfg_path = f"{host_tmp_dir}/{config_name}"
     target_y4m = "/opt/school-meet-streamer/stream.y4m"
 
-    cmd = (
-        f"python3 {script_path} --default "
-        f"--title '{title}' --schedule '{schedule}' --subtitle '{subtitle}' "
-        f"--badge '{badge}' {qr_arg} {custom_bg_arg} --output '{target_y4m}'"
-    )
+    cfg = {
+        "title": title,
+        "schedule": schedule,
+        "subtitle": subtitle,
+        "badge": badge,
+        "qr": qr,
+        "bg_image": host_bg_path,
+        "output": target_y4m
+    }
 
+    try:
+        with open(container_cfg_path, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, ensure_ascii=False)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Failed to write config: {e}"}), 500
+
+    cmd = f"python3 /opt/school-meet-streamer/make_stream.py --config {host_cfg_path}"
     res = exec_host_command(cmd, timeout=30)
+
+    try:
+        if os.path.exists(container_cfg_path):
+            os.remove(container_cfg_path)
+    except Exception:
+        pass
+
     if not res['success']:
         return jsonify({
             'success': False,
