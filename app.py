@@ -128,6 +128,18 @@ def exec_host_command(cmd, timeout=30):
         return run_command(cmd, timeout=timeout)
 
 
+def get_shared_tmp():
+    """Get shared temporary directory accessible by both container and host."""
+    if os.path.exists(SERVICES_DIR):
+        c_dir = os.path.join(SERVICES_DIR, 'cicd-manager', 'tmp')
+        h_dir = '/root/services/cicd-manager/tmp'
+    else:
+        c_dir = '/tmp'
+        h_dir = '/tmp'
+    os.makedirs(c_dir, exist_ok=True)
+    return c_dir, h_dir
+
+
 # Prime CPU percent reading
 try:
     psutil.cpu_percent(interval=None)
@@ -703,8 +715,7 @@ def api_meet_poster_preview():
     bg_image = data.get('bg_image', '')
     image_data = data.get('image_data', '')
 
-    container_tmp_dir = '/host/root/tmp' if os.path.exists('/host/root/tmp') else '/tmp'
-    host_tmp_dir = '/tmp'
+    container_tmp_dir, host_tmp_dir = get_shared_tmp()
     ts = int(datetime.now(timezone.utc).timestamp())
     preview_file_name = f"meet_preview_{ts}.png"
     host_preview_png = f"{host_tmp_dir}/{preview_file_name}"
@@ -787,8 +798,7 @@ def api_meet_poster_apply():
     bg_image = data.get('bg_image', '')
     image_data = data.get('image_data', '')
 
-    container_tmp_dir = '/host/root/tmp' if os.path.exists('/host/root/tmp') else '/tmp'
-    host_tmp_dir = '/tmp'
+    container_tmp_dir, host_tmp_dir = get_shared_tmp()
     ts = int(datetime.now(timezone.utc).timestamp())
 
     host_bg_path = bg_image

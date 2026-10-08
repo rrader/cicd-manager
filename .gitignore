@@ -1,5 +1,7 @@
 # User credentials - do not commit
 users.json
+banner_templates.json
+tmp/
 
 # Python
 __pycache__/
