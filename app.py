@@ -1171,6 +1171,234 @@ def api_meet_air_alert_reset_banner():
 
 
 # ==========================================
+# SCHOOL SERVICES APIS (MOODLE, JOBE, ROSTER, IDEA FACTORY)
+# ==========================================
+
+@app.route('/api/school/status')
+@login_required
+def api_school_status():
+    """Get status of School services: Moodle, Jobe, Roster, Idea Factory."""
+    # 1. Jobe
+    jobe_online = False
+    jobe_langs = []
+    try:
+        j_code, j_data = http_request('http://jobeserver/jobe/index.php/restapi/languages', timeout=3)
+        if j_code == 200 and isinstance(j_data, list):
+            jobe_online = True
+            jobe_langs = [item[0] for item in j_data if isinstance(item, list) and len(item) > 0]
+    except Exception:
+        pass
+
+    # 2. Roster
+    roster_online = False
+    try:
+        r_code, _ = http_request('http://roster:8000/', headers={'Host': 'students.rmn.pp.ua'}, timeout=3)
+        roster_online = (r_code == 200)
+    except Exception:
+        pass
+
+    # 3. Idea Factory
+    idea_online = False
+    try:
+        i_code, _ = http_request('http://idea_factory:5001/', timeout=3)
+        idea_online = (i_code == 200)
+    except Exception:
+        pass
+
+    # 4. Moodle HTTP & DB stats
+    moodle_online = False
+    moodle_stats = {
+        'courses_count': 0,
+        'users_count': 0,
+        'needs_grading_count': 0,
+        'top_pending': []
+    }
+    try:
+        m_code, _ = http_request('http://services-moodle-1:8080/', headers={'Host': 'moodle.rmn.pp.ua'}, timeout=4)
+        moodle_online = (m_code == 200)
+    except Exception:
+        pass
+
+    # Query Moodle MariaDB via host command
+    try:
+        sql = (
+            "SELECT count(*) FROM mdl_course WHERE id > 1; "
+            "SELECT count(*) FROM mdl_user WHERE deleted = 0 AND id > 1; "
+            "SELECT count(distinct qa.id) FROM mdl_quiz_attempts qa JOIN mdl_question_attempts qatt ON qatt.questionusageid = qa.uniqueid JOIN mdl_question_attempt_steps qas ON qas.questionattemptid = qatt.id WHERE qa.state = 'finished' AND qas.state = 'needsgrading'; "
+            "SELECT q.id, q.name, count(distinct qa.id) as pending FROM mdl_quiz_attempts qa JOIN mdl_quiz q ON q.id = qa.quiz JOIN mdl_question_attempts qatt ON qatt.questionusageid = qa.uniqueid JOIN mdl_question_attempt_steps qas ON qas.questionattemptid = qatt.id WHERE qa.state = 'finished' AND qas.state = 'needsgrading' GROUP BY q.id ORDER BY pending DESC LIMIT 5;"
+        )
+        cmd = f"docker exec -i services-mariadb-1 mariadb -u bn_moodle bitnami_moodle -sN -e \"{sql}\""
+        res = exec_host_command(cmd, timeout=8)
+        if res.get('success'):
+            lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
+            if len(lines) >= 3:
+                moodle_stats['courses_count'] = int(lines[0])
+                moodle_stats['users_count'] = int(lines[1])
+                moodle_stats['needs_grading_count'] = int(lines[2])
+                top_pending = []
+                for l in lines[3:]:
+                    parts = l.split('\t')
+                    if len(parts) >= 3:
+                        top_pending.append({'quiz_id': parts[0], 'name': parts[1], 'pending': int(parts[2])})
+                moodle_stats['top_pending'] = top_pending
+    except Exception as e:
+        print(f"Error querying Moodle stats: {e}")
+
+    return jsonify({
+        'success': True,
+        'moodle': {
+            'online': moodle_online,
+            'url': 'https://moodle.rmn.pp.ua',
+            **moodle_stats
+        },
+        'jobe': {
+            'online': jobe_online,
+            'languages': jobe_langs,
+            'url': 'https://jobe.rmn.pp.ua'
+        },
+        'roster': {
+            'online': roster_online,
+            'url': 'https://students.rmn.pp.ua'
+        },
+        'idea_factory': {
+            'online': idea_online,
+            'url': 'https://ideas.rmn.pp.ua'
+        }
+    })
+
+
+# ==========================================
+# SYNCTHING & OBSIDIAN SYNC APIS
+# ==========================================
+
+@app.route('/api/syncthing/status')
+@login_required
+def api_syncthing_status():
+    """Get status of Syncthing and Obsidian sync conflicts."""
+    st_online = False
+    try:
+        code, _ = http_request('http://syncthing:8384/', timeout=3)
+        st_online = (code == 200)
+    except Exception:
+        pass
+
+    vault_size = "--"
+    conflict_files = []
+    try:
+        cmd = "du -sh /root/services/obsidian-vault-personal 2>/dev/null | cut -f1; find /root/services/obsidian-vault-personal -name '*.sync-conflict-*' ! -path '*/.stversions/*' 2>/dev/null"
+        res = exec_host_command(cmd, timeout=5)
+        if res.get('success'):
+            lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
+            if lines:
+                vault_size = lines[0]
+                conflict_files = [p.replace('/root/services/obsidian-vault-personal/', '') for p in lines[1:] if p]
+    except Exception as e:
+        print(f"Error checking Syncthing status: {e}")
+
+    return jsonify({
+        'success': True,
+        'online': st_online,
+        'url': 'https://syncthing.rmn.pp.ua',
+        'vault_size': vault_size,
+        'conflicts_count': len(conflict_files),
+        'conflicts': conflict_files
+    })
+
+
+# ==========================================
+# VAULTWARDEN (BITWARDEN) APIS
+# ==========================================
+
+@app.route('/api/vaultwarden/status')
+@login_required
+def api_vaultwarden_status():
+    """Get Vaultwarden (Bitwarden) health, db size, and last backup info."""
+    bw_online = False
+    try:
+        code, _ = http_request('http://services-bitwarden-1/alive', timeout=3)
+        bw_online = (code == 200)
+    except Exception:
+        pass
+
+    db_size = "--"
+    last_backup = None
+    try:
+        cmd = "ls -lh /root/services/bw-data/db.sqlite3 2>/dev/null | awk '{print $5}'; ls -lht /root/services/bw-data-backup* 2>/dev/null | head -n 1 | awk '{print $5, $6, $7, $8, $9}'"
+        res = exec_host_command(cmd, timeout=5)
+        if res.get('success'):
+            lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
+            if lines:
+                db_size = lines[0]
+                if len(lines) > 1:
+                    last_backup = lines[1]
+    except Exception as e:
+        print(f"Error checking Vaultwarden status: {e}")
+
+    return jsonify({
+        'success': True,
+        'online': bw_online,
+        'url': 'https://bitwarden.rmn.pp.ua',
+        'db_size': db_size,
+        'last_backup': last_backup
+    })
+
+
+# ==========================================
+# DOMAINS & CADDY CATALOG APIS
+# ==========================================
+
+@app.route('/api/domains/status')
+@login_required
+def api_domains_status():
+    """Check health, HTTP code, and latency of all *.rmn.pp.ua subdomains."""
+    domains = [
+        {"name": "Moodle LMS", "domain": "moodle.rmn.pp.ua", "category": "School", "icon": "🎓", "desc": "Навчальна платформа Moodle"},
+        {"name": "Students Roster", "domain": "students.rmn.pp.ua", "category": "School", "icon": "📋", "desc": "База учнівських списків"},
+        {"name": "Jobe Sandbox", "domain": "jobe.rmn.pp.ua", "category": "School", "icon": "⚡", "desc": "Пісочниця CodeRunner"},
+        {"name": "Idea Factory", "domain": "ideas.rmn.pp.ua", "category": "School", "icon": "💡", "desc": "Фабрика STEM-ідей"},
+        {"name": "Vaultwarden", "domain": "bitwarden.rmn.pp.ua", "category": "Security", "icon": "🔐", "desc": "Менеджер паролів Bitwarden"},
+        {"name": "Syncthing GUI", "domain": "syncthing.rmn.pp.ua", "category": "Sync", "icon": "🔄", "desc": "Синхронізація Obsidian сховища"},
+        {"name": "CI/CD Manager", "domain": "cicd.rmn.pp.ua", "category": "Infra", "icon": "🛠", "desc": "Панель керування сервером"},
+        {"name": "Light Bot Web", "domain": "light.rmn.pp.ua", "category": "Utilities", "icon": "💡", "desc": "Моніторинг відключень світла"},
+        {"name": "Light My Fire", "domain": "fire.rmn.pp.ua", "category": "Services", "icon": "🔥", "desc": "Веб-сервіс LightMyFire"},
+        {"name": "Bender", "domain": "bender.rmn.pp.ua", "category": "Infra", "icon": "🤖", "desc": "Внутрішній асистент"},
+        {"name": "Monitorix", "domain": "monitorix.rmn.pp.ua", "category": "Monitoring", "icon": "📊", "desc": "Моніторинг системних ресурсів"},
+        {"name": "Foocus AI", "domain": "foocus.rmn.pp.ua", "category": "AI", "icon": "🎨", "desc": "Генерація зображень Foocus"},
+    ]
+
+    results = []
+    for d in domains:
+        dom = d["domain"]
+        cmd = f"curl -s -k -o /dev/null -w '%{{http_code}}:%{{time_total}}' --max-time 2.5 https://{dom}"
+        res = exec_host_command(cmd, timeout=4)
+        status_code = 0
+        latency_ms = 0
+        if res.get('success'):
+            out = res.get('output', '').strip()
+            out_lines = [l for l in out.splitlines() if not l.startswith('**')]
+            out_val = out_lines[-1] if out_lines else ""
+            if ':' in out_val:
+                try:
+                    c, t = out_val.split(':', 1)
+                    status_code = int(c)
+                    latency_ms = int(float(t) * 1000)
+                except Exception:
+                    pass
+        results.append({
+            **d,
+            'url': f"https://{dom}",
+            'status_code': status_code,
+            'online': (status_code in [200, 301, 302, 401, 403]),
+            'latency_ms': latency_ms
+        })
+
+    return jsonify({
+        'success': True,
+        'domains': results
+    })
+
+
+# ==========================================
 # DOCKER COMPOSE MANAGEMENT (SERVICES)
 # ==========================================
 

@@ -521,6 +521,275 @@
     </div>
 </div>
 
+<!-- TAB: DOMAINS & CADDY CATALOG -->
+<div class="tab-content" id="tab-content-domains" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>🌐 Домени & Каталог Сервісів (*.rmn.pp.ua)</h2>
+            <p>Моніторинг доступності, часу відгуку та каталог швидкого доступу через Caddy Reverse Proxy</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="openLogModal('Логи Caddy', 'services-caddy-1', 'container')">📋 Логи Caddy</button>
+            <button class="btn btn-restart" onclick="runContainerAction('services-caddy-1', 'restart')">🔄 Рестарт Caddy</button>
+            <button class="btn btn-logs" onclick="fetchDomains()">🔄 Оновити статус</button>
+        </div>
+    </div>
+
+    <div class="services-grid" id="domains-grid">
+        <div style="color: var(--text-muted); padding: 2rem;">Опитування доменів...</div>
+    </div>
+</div>
+
+<!-- TAB: SCHOOL (MOODLE, JOBE, ROSTER, IDEA FACTORY) -->
+<div class="tab-content" id="tab-content-school" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>🎓 School Services Hub</h2>
+            <p>Управління шкільною платформою Moodle, пісочницею коду Jobe, списками учнів та фабрикою ідей</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="fetchSchool()">🔄 Оновити</button>
+            <a href="https://moodle.rmn.pp.ua" target="_blank" class="btn btn-up">🎓 Відкрити Moodle ↗</a>
+        </div>
+    </div>
+
+    <div class="cards-row">
+        <!-- Moodle LMS Card -->
+        <div class="bot-card" style="grid-column: span 2;">
+            <div class="bot-card-header">
+                <h3><span>🎓</span> Moodle LMS (moodle.rmn.pp.ua)</h3>
+                <span class="status-pill" id="moodle-status-pill">Опитування...</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
+                <div style="background: rgba(15, 23, 42, 0.6); padding: 0.9rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Неоцінені спроби</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #f59e0b; margin-top: 0.2rem;" id="moodle-needs-grading">--</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">потребують перевірки</div>
+                </div>
+
+                <div style="background: rgba(15, 23, 42, 0.6); padding: 0.9rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Активні курси</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #38bdf8; margin-top: 0.2rem;" id="moodle-courses-count">--</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">10-11 класи</div>
+                </div>
+
+                <div style="background: rgba(15, 23, 42, 0.6); padding: 0.9rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Користувачі Moodle</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #34d399; margin-top: 0.2rem;" id="moodle-users-count">--</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">активні акаунти</div>
+                </div>
+            </div>
+
+            <h4 style="font-size: 0.88rem; color: var(--text-muted); margin: 0.8rem 0 0.4rem 0;">📝 Топ завдань, що очікують оцінювання:</h4>
+            <div id="moodle-pending-quizzes-list" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto;">
+                <div style="color: var(--text-dim); font-size: 0.85rem;">Завантаження списку...</div>
+            </div>
+
+            <div class="action-bar" style="margin-top: 1rem;">
+                <button class="btn btn-logs btn-sm" onclick="openLogModal('Логи Moodle', 'services-moodle-1', 'container')">📋 Логи Moodle</button>
+                <button class="btn btn-restart btn-sm" onclick="runContainerAction('services-moodle-1', 'restart')">🔄 Рестарт Moodle</button>
+            </div>
+        </div>
+
+        <!-- Jobe Sandbox Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>⚡</span> Jobe Code Runner (CodeRunner)</h3>
+                <span class="status-pill" id="jobe-status-pill">Опитування...</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Адреса:</span>
+                    <span class="info-val"><a href="https://jobe.rmn.pp.ua" target="_blank" style="color: #60a5fa; text-decoration: none;">jobe.rmn.pp.ua ↗</a></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Контейнер:</span>
+                    <span class="info-val">jobeserver (порт 80)</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Підтримувані мови:</span>
+                    <span class="info-val" id="jobe-languages-count">--</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 0.75rem;">
+                <div style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.4rem;">Мовні середовища:</div>
+                <div id="jobe-languages-pills" style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                    <!-- Runtimes -->
+                </div>
+            </div>
+
+            <div class="action-bar" style="margin-top: 1rem;">
+                <button class="btn btn-logs btn-sm" onclick="openLogModal('Логи Jobe', 'jobeserver', 'container')">📋 Логи Jobe</button>
+                <button class="btn btn-restart btn-sm" onclick="runContainerAction('jobeserver', 'restart')">🔄 Рестарт Jobe</button>
+            </div>
+        </div>
+
+        <!-- Students Roster Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>📋</span> Students Roster (Списки учнів)</h3>
+                <span class="status-pill" id="roster-status-pill">Опитування...</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Адреса:</span>
+                    <span class="info-val"><a href="https://students.rmn.pp.ua" target="_blank" style="color: #60a5fa; text-decoration: none;">students.rmn.pp.ua ↗</a></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Контейнер:</span>
+                    <span class="info-val">services-roster-1 (порт 8000)</span>
+                </div>
+            </div>
+
+            <div class="action-bar" style="margin-top: 1.25rem;">
+                <a href="https://students.rmn.pp.ua" target="_blank" class="btn btn-up btn-sm" style="text-decoration: none;">Перейти в Roster ↗</a>
+                <button class="btn btn-logs btn-sm" onclick="openLogModal('Логи Roster', 'services-roster-1', 'container')">📋 Логи</button>
+            </div>
+        </div>
+
+        <!-- Idea Factory Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>💡</span> Idea Factory (Фабрика ідей)</h3>
+                <span class="status-pill" id="ideas-status-pill">Опитування...</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Адреса:</span>
+                    <span class="info-val"><a href="https://ideas.rmn.pp.ua" target="_blank" style="color: #60a5fa; text-decoration: none;">ideas.rmn.pp.ua ↗</a></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Контейнер:</span>
+                    <span class="info-val">idea_factory (порт 5001)</span>
+                </div>
+            </div>
+
+            <div class="action-bar" style="margin-top: 1.25rem;">
+                <a href="https://ideas.rmn.pp.ua" target="_blank" class="btn btn-up btn-sm" style="text-decoration: none;">Перейти в Idea Factory ↗</a>
+                <button class="btn btn-logs btn-sm" onclick="openLogModal('Логи Idea Factory', 'idea_factory', 'container')">📋 Логи</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TAB: SYNCTHING -->
+<div class="tab-content" id="tab-content-syncthing" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>🔄 Syncthing & Obsidian Sync</h2>
+            <p>Синхронізація сховища нотаток obsidian-vault-personal та контроль конфліктів</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="openLogModal('Логи Syncthing', 'syncthing', 'container')">📋 Логи</button>
+            <button class="btn btn-restart" onclick="runContainerAction('syncthing', 'restart')">🔄 Рестарт контейнера</button>
+            <button class="btn btn-logs" onclick="fetchSyncthing()">🔄 Оновити</button>
+            <a href="https://syncthing.rmn.pp.ua" target="_blank" class="btn btn-up" style="text-decoration: none;">Відкрити Web UI ↗</a>
+        </div>
+    </div>
+
+    <div class="cards-row">
+        <!-- Syncthing Daemon Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>🔄</span> Стан демона Syncthing</h3>
+                <span class="status-pill" id="syncthing-status-pill">Опитування...</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Web UI:</span>
+                    <span class="info-val"><a href="https://syncthing.rmn.pp.ua" target="_blank" style="color: #60a5fa; text-decoration: none;">syncthing.rmn.pp.ua ↗</a></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Розмір Obsidian сховища:</span>
+                    <span class="info-val" id="syncthing-vault-size">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Шлях на сервері:</span>
+                    <span class="info-val">/root/services/obsidian-vault-personal</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sync Conflicts Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>⚠️</span> Конфлікти синхронізації (*.sync-conflict-*)</h3>
+                <span class="status-pill" id="syncthing-conflicts-pill">0 конфліктів</span>
+            </div>
+
+            <div id="syncthing-conflicts-list" style="margin-top: 0.75rem; max-height: 200px; overflow-y: auto; font-size: 0.85rem;">
+                <p style="color: var(--text-dim); text-align: center; padding: 1.5rem 0;">Конфліктних файлів не знайдено ✅</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TAB: VAULTWARDEN (BITWARDEN) -->
+<div class="tab-content" id="tab-content-vaultwarden" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>🔐 Vaultwarden (Bitwarden)</h2>
+            <p>Менеджер паролів bitwarden.rmn.pp.ua, стан бази SQLite та резервні копії</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="openLogModal('Логи Bitwarden', 'services-bitwarden-1', 'container')">📋 Логи</button>
+            <button class="btn btn-restart" onclick="runContainerAction('services-bitwarden-1', 'restart')">🔄 Рестарт контейнера</button>
+            <button class="btn btn-logs" onclick="fetchVaultwarden()">🔄 Оновити</button>
+            <a href="https://bitwarden.rmn.pp.ua" target="_blank" class="btn btn-up" style="text-decoration: none;">Відкрити Сховище ↗</a>
+        </div>
+    </div>
+
+    <div class="cards-row">
+        <!-- Vaultwarden Health Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>🔐</span> Стан сервера Vaultwarden</h3>
+                <span class="status-pill" id="vw-status-pill">Опитування...</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Адреса:</span>
+                    <span class="info-val"><a href="https://bitwarden.rmn.pp.ua" target="_blank" style="color: #60a5fa; text-decoration: none;">bitwarden.rmn.pp.ua ↗</a></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Контейнер:</span>
+                    <span class="info-val">services-bitwarden-1 (1.37.1)</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Розмір бази (db.sqlite3):</span>
+                    <span class="info-val" id="vw-db-size">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backups Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>💾</span> Резервні копії (Backups)</h3>
+                <span class="status-pill up">Збережено</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Каталог даних:</span>
+                    <span class="info-val">/root/services/bw-data</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Останній бекап:</span>
+                    <span class="info-val" id="vw-last-backup">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- TAB 2: CI/CD SERVICES (DOCKER COMPOSE) -->
 <div class="tab-content" id="tab-content-compose">
     <div class="section-header">
@@ -1785,6 +2054,180 @@ function showPosterStatus(msg, color) {
     el.style.color = color || 'var(--text-muted)';
 }
 
+window.fetchSchool = function() {
+    fetch('/api/school/status')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) return;
+            // Moodle
+            const m = res.moodle;
+            const mPill = document.getElementById('moodle-status-pill');
+            if (mPill) {
+                mPill.className = m.online ? 'status-pill up' : 'status-pill down';
+                mPill.textContent = m.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+            const navBadge = document.getElementById('school-nav-badge');
+            if (navBadge) {
+                navBadge.textContent = m.needs_grading_count ? `${m.needs_grading_count} робіт` : 'Moodle';
+                navBadge.style.color = m.needs_grading_count ? '#f59e0b' : '#34d399';
+            }
+            const grEl = document.getElementById('moodle-needs-grading');
+            if (grEl) grEl.textContent = m.needs_grading_count !== undefined ? m.needs_grading_count : '--';
+            const cEl = document.getElementById('moodle-courses-count');
+            if (cEl) cEl.textContent = m.courses_count || '--';
+            const uEl = document.getElementById('moodle-users-count');
+            if (uEl) uEl.textContent = m.users_count || '--';
+
+            const listEl = document.getElementById('moodle-pending-quizzes-list');
+            if (listEl && m.top_pending) {
+                if (m.top_pending.length === 0) {
+                    listEl.innerHTML = '<div style="color: #34d399; font-size: 0.85rem; padding: 0.5rem 0;">Всі роботи перевірено! 🎉</div>';
+                } else {
+                    listEl.innerHTML = m.top_pending.map(item => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.7); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid rgba(51, 65, 85, 0.5);">
+                            <span style="font-size: 0.85rem; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">${item.name}</span>
+                            <span style="font-weight: 700; font-size: 0.82rem; color: #fbbf24; background: rgba(245, 158, 11, 0.15); padding: 0.15rem 0.5rem; border-radius: 10px;">${item.pending}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Jobe
+            const j = res.jobe;
+            const jPill = document.getElementById('jobe-status-pill');
+            if (jPill) {
+                jPill.className = j.online ? 'status-pill up' : 'status-pill down';
+                jPill.textContent = j.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+            const jCnt = document.getElementById('jobe-languages-count');
+            if (jCnt) jCnt.textContent = j.languages ? `${j.languages.length} мов` : '--';
+            const jPills = document.getElementById('jobe-languages-pills');
+            if (jPills && j.languages) {
+                jPills.innerHTML = j.languages.map(l => `<span style="background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">${l}</span>`).join('');
+            }
+
+            // Roster
+            const r = res.roster;
+            const rPill = document.getElementById('roster-status-pill');
+            if (rPill) {
+                rPill.className = r.online ? 'status-pill up' : 'status-pill down';
+                rPill.textContent = r.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+
+            // Idea Factory
+            const i = res.idea_factory;
+            const iPill = document.getElementById('ideas-status-pill');
+            if (iPill) {
+                iPill.className = i.online ? 'status-pill up' : 'status-pill down';
+                iPill.textContent = i.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+        })
+        .catch(console.error);
+};
+
+window.fetchDomains = function() {
+    fetch('/api/domains/status')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.domains) return;
+            const grid = document.getElementById('domains-grid');
+            if (!grid) return;
+            grid.innerHTML = res.domains.map(d => {
+                const isUp = d.online;
+                const statusColor = isUp ? '#34d399' : '#f87171';
+                const pillClass = isUp ? 'status-pill up' : 'status-pill down';
+                const statusText = isUp ? (d.status_code ? `${d.status_code} OK` : 'Online') : 'Down';
+                const latencyText = d.latency_ms ? `${d.latency_ms} ms` : '--';
+
+                return `
+                <div class="service-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div class="service-card-header">
+                            <div class="service-title">
+                                <span>${d.icon}</span>
+                                <span>${d.name}</span>
+                            </div>
+                            <span class="${pillClass}">${statusText}</span>
+                        </div>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0.6rem 0 0.8rem 0;">${d.desc}</p>
+                        <div class="info-list" style="margin-bottom: 0.75rem;">
+                            <div class="info-item">
+                                <span class="info-label">Домен:</span>
+                                <span class="info-val"><a href="${d.url}" target="_blank" style="color: #60a5fa; text-decoration: none;">${d.domain} ↗</a></span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Час відгуку:</span>
+                                <span class="info-val" style="color: ${statusColor}; font-weight: 600;">${latencyText}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <a href="${d.url}" target="_blank" class="btn btn-up" style="width: 100%; text-decoration: none;">Відкрити сервіс ↗</a>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        })
+        .catch(console.error);
+};
+
+window.fetchSyncthing = function() {
+    fetch('/api/syncthing/status')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) return;
+            const pill = document.getElementById('syncthing-status-pill');
+            if (pill) {
+                pill.className = res.online ? 'status-pill up' : 'status-pill down';
+                pill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+            const vz = document.getElementById('syncthing-vault-size');
+            if (vz) vz.textContent = res.vault_size || '--';
+
+            const cPill = document.getElementById('syncthing-conflicts-pill');
+            const cList = document.getElementById('syncthing-conflicts-list');
+            if (cPill) {
+                if (res.conflicts_count > 0) {
+                    cPill.className = 'status-pill warn';
+                    cPill.textContent = `⚠️ ${res.conflicts_count} конфліктів`;
+                } else {
+                    cPill.className = 'status-pill up';
+                    cPill.textContent = '0 конфліктів';
+                }
+            }
+            if (cList) {
+                if (res.conflicts && res.conflicts.length > 0) {
+                    cList.innerHTML = res.conflicts.map(f => `
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.4rem 0.6rem; border-radius: 6px; margin-bottom: 0.3rem; color: #fca5a5; font-family: monospace; font-size: 0.78rem; word-break: break-all;">
+                            ${f}
+                        </div>
+                    `).join('');
+                } else {
+                    cList.innerHTML = '<p style="color: #34d399; text-align: center; padding: 1.5rem 0;">Конфліктних файлів не знайдено ✅</p>';
+                }
+            }
+        })
+        .catch(console.error);
+};
+
+window.fetchVaultwarden = function() {
+    fetch('/api/vaultwarden/status')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) return;
+            const pill = document.getElementById('vw-status-pill');
+            if (pill) {
+                pill.className = res.online ? 'status-pill up' : 'status-pill down';
+                pill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+            const dbEl = document.getElementById('vw-db-size');
+            if (dbEl) dbEl.textContent = res.db_size || '--';
+            const bkEl = document.getElementById('vw-last-backup');
+            if (bkEl) bkEl.textContent = res.last_backup || 'Немає';
+        })
+        .catch(console.error);
+};
+
 // Initial fetch & 5s interval loop
 document.addEventListener('DOMContentLoaded', () => {
     fetchMetrics();
@@ -1792,9 +2235,17 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchPo2Bot();
     fetchMeet();
     fetchBannerTemplates();
+    fetchSchool();
+    fetchDomains();
+    fetchSyncthing();
+    fetchVaultwarden();
 
     setInterval(() => {
         if (currentActiveTab === 'metrics') fetchMetrics();
+        if (currentActiveTab === 'domains') fetchDomains();
+        if (currentActiveTab === 'school') fetchSchool();
+        if (currentActiveTab === 'syncthing') fetchSyncthing();
+        if (currentActiveTab === 'vaultwarden') fetchVaultwarden();
         if (currentActiveTab === 'lightbot') fetchLightBot();
         if (currentActiveTab === 'po2bot') fetchPo2Bot();
         if (currentActiveTab === 'meet') fetchMeet();

@@ -360,17 +360,45 @@
     <div class="layout-container">
         {% if session.logged_in %}
         <aside class="sidebar">
-            <div class="sidebar-section-title">Сервісні Панелі</div>
+            <div class="sidebar-section-title">Головне</div>
             
             <div class="nav-item active" onclick="switchTab('metrics')" id="nav-metrics">
                 <span class="icon">📊</span>
-                <span>Системні метрики</span>
+                <span>Метрики</span>
             </div>
 
-            <div class="nav-item" onclick="switchTab('compose')" id="nav-compose">
-                <span class="icon">🛠</span>
-                <span>CI/CD Сервіси</span>
-                <span class="badge" id="services-badge">{{ services|length }}</span>
+            <div class="nav-item" onclick="switchTab('domains')" id="nav-domains">
+                <span class="icon">🌐</span>
+                <span>Домени & Каталог</span>
+                <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">12</span>
+            </div>
+
+            <div class="sidebar-section-title">Навчання & Школа</div>
+
+            <div class="nav-item" onclick="switchTab('school')" id="nav-school">
+                <span class="icon">🎓</span>
+                <span>School</span>
+                <span class="badge" id="school-nav-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Moodle</span>
+            </div>
+
+            <div class="nav-item" onclick="switchTab('meet')" id="nav-meet">
+                <span class="icon">🎥</span>
+                <span>Meet Streamer</span>
+                <span class="badge" id="meet-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">Meet</span>
+            </div>
+
+            <div class="sidebar-section-title">Сховище & Безпека</div>
+
+            <div class="nav-item" onclick="switchTab('syncthing')" id="nav-syncthing">
+                <span class="icon">🔄</span>
+                <span>Syncthing</span>
+                <span class="badge" style="background: rgba(14, 165, 233, 0.2); color: #38bdf8;">Sync</span>
+            </div>
+
+            <div class="nav-item" onclick="switchTab('vaultwarden')" id="nav-vaultwarden">
+                <span class="icon">🔐</span>
+                <span>Vaultwarden</span>
+                <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Pass</span>
             </div>
 
             <div class="sidebar-section-title">Мікросервіси</div>
@@ -387,10 +415,10 @@
                 <span class="badge" id="po2bot-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">8088</span>
             </div>
 
-            <div class="nav-item" onclick="switchTab('meet')" id="nav-meet">
-                <span class="icon">🎥</span>
-                <span>Meet Streamer</span>
-                <span class="badge" id="meet-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">Meet</span>
+            <div class="nav-item" onclick="switchTab('compose')" id="nav-compose">
+                <span class="icon">🛠</span>
+                <span>CI/CD Сервіси</span>
+                <span class="badge" id="services-badge">{{ services|length }}</span>
             </div>
         </aside>
         {% endif %}
@@ -452,6 +480,10 @@
 
             // Trigger immediate refresh for active tab
             if (tabId === 'metrics' && window.fetchMetrics) window.fetchMetrics();
+            if (tabId === 'domains' && window.fetchDomains) window.fetchDomains();
+            if (tabId === 'school' && window.fetchSchool) window.fetchSchool();
+            if (tabId === 'syncthing' && window.fetchSyncthing) window.fetchSyncthing();
+            if (tabId === 'vaultwarden' && window.fetchVaultwarden) window.fetchVaultwarden();
             if (tabId === 'lightbot' && window.fetchLightBot) window.fetchLightBot();
             if (tabId === 'po2bot' && window.fetchPo2Bot) window.fetchPo2Bot();
             if (tabId === 'meet' && window.fetchMeet) window.fetchMeet();
