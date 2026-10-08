@@ -248,7 +248,7 @@ class AirAlertManager:
                             self.resumed_banner_restored = True
                             self._save_state()
                         self._apply_stream_banner(alert_level=None)
-                        self._send_meet_chat("🔔 Час перерви вичерпано. Урок розпочинається!")
+                        self._send_meet_chat("🔔 Урок починається!")
 
                 # If automated monitoring is enabled and not manually overridden
                 if self.monitoring_enabled and not self.manual_override:
