@@ -46,22 +46,134 @@ TEMPLATES_FILE = os.environ.get('TEMPLATES_FILE', os.path.join(SERVICES_DIR, 'ci
 DEFAULT_TEMPLATES = [
     {
         "id": "stem_club",
-        "name": "STEM Гурток (Стандартний)",
+        "name": "STEM Гурток «Інженерія ШІ»",
         "badge": "ORT STEM CLUB • ONLINE",
         "title": "STEM Гурток «Інженерія ШІ»",
         "schedule": "Понеділок, Середа, П'ятниця • 16:30 – 18:00",
         "subtitle": "Заняття почнеться незабаром",
-        "qr": "https://meet.google.com/moj-zweh-zpq",
+        "qr": "https://t.me/+T6-bsnhWXZNhZjQy",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10a1_info",
+        "name": "10-А (1 група) • Інформатика",
+        "badge": "10-А • ІНФОРМАТИКА (1 ГРУПА)",
+        "title": "10-А Клас: Інформатика",
+        "schedule": "Код Classroom: n6in3g7l",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+BcfMtOeORc41MTY6",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10a2_info",
+        "name": "10-А (2 група) • Інформатика",
+        "badge": "10-А • ІНФОРМАТИКА (2 ГРУПА)",
+        "title": "10-А Клас: Інформатика",
+        "schedule": "Код Classroom: kp7i44cu",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+kbOf90UrwQo0MTIy",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10b1_info",
+        "name": "10-Б (1 група) • Інформатика",
+        "badge": "10-Б • ІНФОРМАТИКА (1 ГРУПА)",
+        "title": "10-Б Клас: Інформатика",
+        "schedule": "Код Classroom: cd2fmnnl",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+sF5P9a9PElNhNDhi",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10b2_info",
+        "name": "10-Б (2 група) • Інформатика",
+        "badge": "10-Б • ІНФОРМАТИКА (2 ГРУПА)",
+        "title": "10-Б Клас: Інформатика",
+        "schedule": "Код Classroom: xv77hur4",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+R4A-sch-mwc0ODk6",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10v1_info",
+        "name": "10-В (1 група) • Інформатика",
+        "badge": "10-В • ІНФОРМАТИКА (1 ГРУПА)",
+        "title": "10-В Клас: Інформатика",
+        "schedule": "Код Classroom: f2nxiaeo",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+bHoRBLLMl8lkMWFi",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10v2_info",
+        "name": "10-В (2 група) • Інформатика",
+        "badge": "10-В • ІНФОРМАТИКА (2 ГРУПА)",
+        "title": "10-В Клас: Інформатика",
+        "schedule": "Код Classroom: vs55sgu4",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+1Su96ZyyadYwZmIy",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10g1_info",
+        "name": "10-Г (1 група) • Інформатика",
+        "badge": "10-Г • ІНФОРМАТИКА (1 ГРУПА)",
+        "title": "10-Г Клас: Інформатика",
+        "schedule": "Код Classroom: pey2jtvc",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+TdzXtROFXL0wZjky",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10g2_info",
+        "name": "10-Г (2 група) • Інформатика",
+        "badge": "10-Г • ІНФОРМАТИКА (2 ГРУПА)",
+        "title": "10-Г Клас: Інформатика",
+        "schedule": "Код Classroom: xr53rjd5",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+xPFR2MMs1tE3M2Uy",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "10a_ai",
+        "name": "10-А • Основи інженерії ШІ",
+        "badge": "10-А • ОІШІ",
+        "title": "Основи інженерії ШІ",
+        "schedule": "Код Classroom: tlcn33ge",
+        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "qr": "https://t.me/+yp8eR3Pc8e9hYTJi",
+        "qr_caption": "Telegram група",
+        "bg_image": ""
+    },
+    {
+        "id": "11a_web",
+        "name": "11-А • Вебтехнології",
+        "badge": "11-А • ВЕБТЕХНОЛОГІЇ",
+        "title": "11-А: Вебтехнології",
+        "schedule": "Код Classroom: strk6qub",
+        "subtitle": "Понеділок • 10:50 – 12:40 (2 пара)",
+        "qr": "https://t.me/Fieneek",
+        "qr_caption": "Telegram група",
         "bg_image": ""
     },
     {
         "id": "break",
         "name": "Перерва 10 хв",
         "badge": "ПЕРЕРВА • BREAK",
-        "title": "STEM Гурток «Інженерія ШІ»",
-        "schedule": "Заняття продовжиться через кілька хвилин",
+        "title": "Перерва між уроками",
+        "schedule": "Урок продовжиться за кілька хвилин",
         "subtitle": "Зробіть чай та розімніться ☕",
         "qr": "",
+        "qr_caption": "",
         "bg_image": ""
     },
     {
@@ -72,16 +184,7 @@ DEFAULT_TEMPLATES = [
         "schedule": "Трансляція відновиться найближчим часом",
         "subtitle": "Будь ласка, залишайтеся на зв'язку",
         "qr": "",
-        "bg_image": ""
-    },
-    {
-        "id": "consultation",
-        "name": "Консультації та Q&A",
-        "badge": "Q&A SESSION",
-        "title": "Консультації та захист проєктів",
-        "schedule": "Вільний мікрофон для запитань",
-        "subtitle": "Піднімайте руку в Meet для черги ✋",
-        "qr": "https://meet.google.com/moj-zweh-zpq",
+        "qr_caption": "",
         "bg_image": ""
     }
 ]
@@ -712,6 +815,7 @@ def api_meet_poster_preview():
     subtitle = data.get('subtitle', '')
     badge = data.get('badge', 'ORT STEM CLUB • ONLINE')
     qr = data.get('qr', '')
+    qr_caption = data.get('qr_caption', 'Telegram група')
     bg_image = data.get('bg_image', '')
     image_data = data.get('image_data', '')
 
@@ -744,6 +848,7 @@ def api_meet_poster_preview():
         "subtitle": subtitle,
         "badge": badge,
         "qr": qr,
+        "qr_caption": qr_caption,
         "bg_image": host_bg_path,
         "preview": host_preview_png
     }
@@ -795,6 +900,7 @@ def api_meet_poster_apply():
     subtitle = data.get('subtitle', '')
     badge = data.get('badge', 'ORT STEM CLUB • ONLINE')
     qr = data.get('qr', '')
+    qr_caption = data.get('qr_caption', 'Telegram група')
     bg_image = data.get('bg_image', '')
     image_data = data.get('image_data', '')
 
@@ -825,6 +931,7 @@ def api_meet_poster_apply():
         "subtitle": subtitle,
         "badge": badge,
         "qr": qr,
+        "qr_caption": qr_caption,
         "bg_image": host_bg_path,
         "output": target_y4m
     }

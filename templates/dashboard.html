@@ -682,14 +682,19 @@
                     <input type="text" id="poster-name" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="Назва шаблону (наприклад: STEM Гурток)">
                 </div>
 
+                <div>
+                    <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Бейдж (верхній рядок)</label>
+                    <input type="text" id="poster-badge" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="ORT STEM CLUB • ONLINE">
+                </div>
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                     <div>
-                        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Бейдж (верхній рядок)</label>
-                        <input type="text" id="poster-badge" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="ORT STEM CLUB • ONLINE">
+                        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">QR-код (URL або текст)</label>
+                        <input type="text" id="poster-qr" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="https://t.me/... (необов'язково)">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">QR-код (URL або текст)</label>
-                        <input type="text" id="poster-qr" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="https://meet.google.com/... (необов'язково)">
+                        <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Підпис під QR-кодом</label>
+                        <input type="text" id="poster-qr-caption" class="chat-input" style="width: 100%; border-radius: 6px;" placeholder="Telegram група">
                     </div>
                 </div>
 
@@ -1160,6 +1165,7 @@ function onTemplateSelected() {
     document.getElementById('poster-schedule').value = tpl.schedule || '';
     document.getElementById('poster-subtitle').value = tpl.subtitle || '';
     document.getElementById('poster-qr').value = tpl.qr || '';
+    document.getElementById('poster-qr-caption').value = tpl.qr_caption || (tpl.qr ? 'Telegram група' : '');
     document.getElementById('poster-bg-image').value = tpl.bg_image || '';
     currentUploadedImageData = '';
     const fnEl = document.getElementById('poster-file-name');
@@ -1190,6 +1196,7 @@ function addNewTemplatePrompt() {
         schedule: document.getElementById('poster-schedule').value || '',
         subtitle: document.getElementById('poster-subtitle').value || '',
         qr: document.getElementById('poster-qr').value || '',
+        qr_caption: document.getElementById('poster-qr-caption').value || 'Telegram група',
         bg_image: document.getElementById('poster-bg-image').value || ''
     };
     bannerTemplates.push(newTpl);
@@ -1229,9 +1236,10 @@ function saveCurrentTemplate() {
     const schedule = document.getElementById('poster-schedule').value.trim();
     const subtitle = document.getElementById('poster-subtitle').value.trim();
     const qr = document.getElementById('poster-qr').value.trim();
+    const qr_caption = document.getElementById('poster-qr-caption').value.trim() || 'Telegram група';
     const bg_image = document.getElementById('poster-bg-image').value.trim();
 
-    const tpl = { id: curId, name, badge, title, schedule, subtitle, qr, bg_image };
+    const tpl = { id: curId, name, badge, title, schedule, subtitle, qr, qr_caption, bg_image };
 
     fetch('/api/meet/templates', {
         method: 'POST',
@@ -1258,6 +1266,7 @@ function getPosterFormData() {
         schedule: document.getElementById('poster-schedule').value.trim(),
         subtitle: document.getElementById('poster-subtitle').value.trim(),
         qr: document.getElementById('poster-qr').value.trim(),
+        qr_caption: document.getElementById('poster-qr-caption').value.trim() || 'Telegram група',
         bg_image: document.getElementById('poster-bg-image').value.trim(),
         image_data: currentUploadedImageData
     };
