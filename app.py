@@ -42,6 +42,10 @@ LIGHT_BOT_URL = os.environ.get('LIGHT_BOT_URL', 'http://light-bot:5000')
 PO2BOT_URL = os.environ.get('PO2BOT_URL', 'http://po2bot:8088')
 MEET_STREAMER_URL = os.environ.get('MEET_STREAMER_URL', 'http://meet-streamer:8090')
 TEMPLATES_FILE = os.environ.get('TEMPLATES_FILE', os.path.join(SERVICES_DIR, 'cicd-manager', 'banner_templates.json'))
+AIR_ALERT_STATE_FILE = os.environ.get('AIR_ALERT_STATE_FILE', os.path.join(SERVICES_DIR, 'cicd-manager', 'air_alert_state.json') if os.path.exists(SERVICES_DIR) else '/app/air_alert_state.json')
+CURRENT_BANNER_FILE = os.environ.get('CURRENT_BANNER_FILE', os.path.join(SERVICES_DIR, 'cicd-manager', 'current_banner.json') if os.path.exists(SERVICES_DIR) else '/app/current_banner.json')
+
+from air_alert import AirAlertManager
 
 DEFAULT_TEMPLATES = [
     {
@@ -406,6 +410,117 @@ def http_request(url, method='GET', headers=None, data=None, timeout=5):
         return e.code, parsed
     except Exception as e:
         return 500, {'error': str(e)}
+
+
+def get_current_banner_config():
+    """Get active banner configuration."""
+    paths = [CURRENT_BANNER_FILE, '/app/current_banner.json']
+    for p in paths:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        return data
+            except Exception:
+                pass
+    templates = load_banner_templates()
+    if templates and len(templates) > 0:
+        t = templates[0]
+        return {
+            "title": t.get("title", "STEM Гурток «Інженерія ШІ»"),
+            "schedule": t.get("schedule", ""),
+            "subtitle": t.get("subtitle", ""),
+            "badge": t.get("badge", "ORT STEM CLUB • ONLINE"),
+            "qr": t.get("qr", ""),
+            "qr_caption": t.get("qr_caption", "Telegram група"),
+            "bg_image": t.get("bg_image", "")
+        }
+    return {}
+
+
+def save_current_banner_config(cfg):
+    """Save active banner configuration to disk."""
+    clean_cfg = {
+        "title": cfg.get("title", ""),
+        "schedule": cfg.get("schedule", ""),
+        "subtitle": cfg.get("subtitle", ""),
+        "badge": cfg.get("badge", ""),
+        "qr": cfg.get("qr", ""),
+        "qr_caption": cfg.get("qr_caption", ""),
+        "bg_image": cfg.get("bg_image", "")
+    }
+    paths = [CURRENT_BANNER_FILE, '/app/current_banner.json']
+    for p in paths:
+        try:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, 'w', encoding='utf-8') as f:
+                json.dump(clean_cfg, f, ensure_ascii=False, indent=2)
+            break
+        except Exception:
+            pass
+
+
+def apply_banner_stream(cfg):
+    """Generate Y4M stream on host, update /opt/school-meet-streamer/stream.y4m, and reload camera."""
+    container_tmp_dir, host_tmp_dir = get_shared_tmp()
+    ts = int(datetime.now(timezone.utc).timestamp())
+    config_name = f"poster_cfg_{ts}.json"
+    container_cfg_path = f"{container_tmp_dir}/{config_name}"
+    host_cfg_path = f"{host_tmp_dir}/{config_name}"
+    target_y4m = "/opt/school-meet-streamer/stream.y4m"
+
+    full_cfg = dict(cfg)
+    full_cfg["output"] = target_y4m
+
+    try:
+        with open(container_cfg_path, 'w', encoding='utf-8') as f:
+            json.dump(full_cfg, f, ensure_ascii=False)
+    except Exception as e:
+        return {'success': False, 'error': f"Failed to write config: {e}"}
+
+    cmd = f"python3 /opt/school-meet-streamer/make_stream.py --config {host_cfg_path}"
+    res = exec_host_command(cmd, timeout=30)
+
+    try:
+        if os.path.exists(container_cfg_path):
+            os.remove(container_cfg_path)
+    except Exception:
+        pass
+
+    if not res.get('success'):
+        return {'success': False, 'error': f"Failed to generate stream: {res.get('output', '')}"}
+
+    # Toggle camera in meeting to reload fake video capture stream
+    cam_status, cam_resp = http_request(f"{MEET_STREAMER_URL}/camera/toggle", method='POST', timeout=10)
+    return {'success': True, 'camera_reload': cam_resp}
+
+
+def send_meet_chat_internal(text):
+    """Send text message into ongoing Google Meet call."""
+    return http_request(
+        f'{MEET_STREAMER_URL}/chat',
+        method='POST',
+        data={'text': text, 'message': text},
+        timeout=10
+    )
+
+
+def is_meet_in_call():
+    """Check if meet-streamer is currently in a call."""
+    status_code, data = http_request(f'{MEET_STREAMER_URL}/status', timeout=3)
+    return bool(status_code == 200 and isinstance(data, dict) and data.get('inMeeting'))
+
+
+# Initialize Air Alert Manager
+air_alert = AirAlertManager(
+    state_file=AIR_ALERT_STATE_FILE,
+    get_banner_fn=get_current_banner_config,
+    apply_banner_fn=apply_banner_stream,
+    send_chat_fn=send_meet_chat_internal,
+    is_in_meeting_fn=is_meet_in_call,
+)
+air_alert.start()
 
 
 @app.route('/')
@@ -950,7 +1065,6 @@ def api_meet_poster_apply():
     image_data = data.get('image_data', '')
 
     container_tmp_dir, host_tmp_dir = get_shared_tmp()
-    ts = int(datetime.now(timezone.utc).timestamp())
 
     host_bg_path = bg_image
     if image_data and ',' in image_data:
@@ -965,11 +1079,6 @@ def api_meet_poster_apply():
         except Exception as e:
             print(f"Failed to decode image_data: {e}")
 
-    config_name = f"poster_cfg_{ts}.json"
-    container_cfg_path = f"{container_tmp_dir}/{config_name}"
-    host_cfg_path = f"{host_tmp_dir}/{config_name}"
-    target_y4m = "/opt/school-meet-streamer/stream.y4m"
-
     cfg = {
         "title": title,
         "schedule": schedule,
@@ -978,38 +1087,87 @@ def api_meet_poster_apply():
         "qr": qr,
         "qr_caption": qr_caption,
         "bg_image": host_bg_path,
-        "output": target_y4m
     }
 
-    try:
-        with open(container_cfg_path, 'w', encoding='utf-8') as f:
-            json.dump(cfg, f, ensure_ascii=False)
-    except Exception as e:
-        return jsonify({'success': False, 'error': f"Failed to write config: {e}"}), 500
+    save_current_banner_config(cfg)
 
-    cmd = f"python3 /opt/school-meet-streamer/make_stream.py --config {host_cfg_path}"
-    res = exec_host_command(cmd, timeout=30)
+    # Check if air alert is active to overlay alert attributes
+    alert_status = air_alert.get_status()
+    if alert_status.get('is_alert') or alert_status.get('alert_level') in ['red', 'yellow', 'green']:
+        cfg['alert_level'] = alert_status.get('alert_level')
+        cfg['alert_time'] = alert_status.get('alert_start_time') if alert_status.get('is_alert') else alert_status.get('alert_end_time')
+        cfg['alert_resumes_at'] = alert_status.get('lesson_resumes_at')
+        cfg['alert_duration'] = alert_status.get('alert_duration')
 
-    try:
-        if os.path.exists(container_cfg_path):
-            os.remove(container_cfg_path)
-    except Exception:
-        pass
-
-    if not res['success']:
+    res = apply_banner_stream(cfg)
+    if not res.get('success'):
         return jsonify({
             'success': False,
-            'error': f"Failed to generate stream: {res['output']}"
+            'error': res.get('error', 'Failed to generate stream')
         }), 500
-
-    # Toggle camera in meeting to reload fake video capture stream
-    cam_status, cam_resp = http_request(f"{MEET_STREAMER_URL}/camera/toggle", method='POST', timeout=10)
 
     return jsonify({
         'success': True,
         'message': 'Заставку успішно згенеровано та потік перезавантажено!',
-        'camera_reload': cam_resp
+        'camera_reload': res.get('camera_reload')
     })
+
+
+@app.route('/api/meet/air-alert/status')
+@login_required
+def api_meet_air_alert_status():
+    """Get air alert monitoring state and Kyiv City alert status."""
+    return jsonify({
+        'success': True,
+        'status': air_alert.get_status()
+    })
+
+
+@app.route('/api/meet/air-alert/toggle-monitoring', methods=['POST'])
+@login_required
+def api_meet_air_alert_toggle_monitoring():
+    """Toggle master automated air alert monitoring."""
+    req_data = request.get_json(silent=True) or {}
+    enabled = req_data.get('enabled')
+    if enabled is None:
+        current = air_alert.get_status()
+        enabled = not current.get('monitoring_enabled', True)
+    res = air_alert.set_monitoring(enabled)
+    return jsonify({'success': True, 'status': res})
+
+
+@app.route('/api/meet/air-alert/trigger', methods=['POST'])
+@login_required
+def api_meet_air_alert_trigger():
+    """Manually trigger alert (red or yellow)."""
+    req_data = request.get_json(silent=True) or {}
+    level = req_data.get('level', 'red')
+    res = air_alert.trigger_manual_alert(level)
+    return jsonify({'success': True, 'status': res})
+
+
+@app.route('/api/meet/air-alert/clear', methods=['POST'])
+@login_required
+def api_meet_air_alert_clear():
+    """Manually trigger all-clear (відбій)."""
+    res = air_alert.trigger_manual_clear()
+    return jsonify({'success': True, 'status': res})
+
+
+@app.route('/api/meet/air-alert/reset-auto', methods=['POST'])
+@login_required
+def api_meet_air_alert_reset_auto():
+    """Reset manual override and return to auto-monitoring."""
+    res = air_alert.reset_to_auto()
+    return jsonify({'success': True, 'status': res})
+
+
+@app.route('/api/meet/air-alert/reset-banner', methods=['POST'])
+@login_required
+def api_meet_air_alert_reset_banner():
+    """Remove alert overlay from stream banner and restore normal poster."""
+    res = air_alert.reset_banner_to_normal()
+    return jsonify({'success': True, 'status': res})
 
 
 # ==========================================

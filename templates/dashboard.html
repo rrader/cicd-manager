@@ -732,6 +732,55 @@
             </div>
             <div id="meet-chat-result" style="font-size: 0.8rem; margin-top: 0.25rem;"></div>
         </div>
+
+        <!-- Air Alert Kyiv Card -->
+        <div class="bot-card" id="air-alert-card">
+            <div class="bot-card-header">
+                <h3><span>🚨</span> Повітряна тривога в м. Київ</h3>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Автоматичний моніторинг тривог (Київ Цифровий)">
+                        <input type="checkbox" id="air-alert-monitor-switch" onchange="onAirAlertMonitorSwitchChanged(this)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill neutral" id="air-alert-status-pill" title="Поточний статус">🟢 Загроз немає</span>
+                </div>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Автомоніторинг:</span>
+                    <span class="info-val" id="air-alert-monitoring-state">Увімкнено (Київ Цифровий)</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Поточний стан:</span>
+                    <span class="info-val" id="air-alert-level-text">Загроз немає</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Час початку:</span>
+                    <span class="info-val" id="air-alert-start-time">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Відбій / тривалість:</span>
+                    <span class="info-val" id="air-alert-end-time">--</span>
+                </div>
+                <div class="info-item" style="border-top: 1px dashed var(--border-color); padding-top: 0.35rem; margin-top: 0.2rem;">
+                    <span class="info-label" style="font-weight: 700; color: #38bdf8;">Відновлення уроку:</span>
+                    <span class="info-val" style="font-weight: 700; color: #38bdf8;" id="air-alert-resume-time">--</span>
+                </div>
+            </div>
+
+            <div style="font-size: 0.76rem; color: var(--text-dim); margin-top: 0.4rem;">
+                Алгоритм: тривалість &le;10 хв &rarr; урок через 10 хв; &gt;10 хв &rarr; через 20 хв
+            </div>
+
+            <div class="action-bar" style="margin-top: 0.6rem; flex-wrap: wrap; gap: 0.4rem;">
+                <button class="btn btn-danger btn-sm" onclick="triggerAirAlert('red')" id="btn-alert-red" title="Увімкнути Червону тривогу (ракетна небезпека)">🔴 Червона</button>
+                <button class="btn btn-warning btn-sm" onclick="triggerAirAlert('yellow')" id="btn-alert-yellow" style="background: #d97706; border-color: #f59e0b; color: white;" title="Увімкнути Жовту тривогу (дрони)">🟡 Жовта</button>
+                <button class="btn btn-up btn-sm" onclick="triggerAirAlertClear()" id="btn-alert-clear" title="Оголосити відбій тривоги">🟢 Відбій</button>
+                <button class="btn btn-logs btn-sm" onclick="resetAirAlertAuto()" id="btn-alert-auto" title="Скинути до авторежиму (Київ Цифровий)">🔄 Авто</button>
+                <button class="btn btn-logs btn-sm" onclick="resetAirAlertBanner()" id="btn-alert-reset-banner" title="Прибрати плашку тривоги зі стріму">🖼 Скинути плашку</button>
+            </div>
+        </div>
     </div>
 
     <!-- BANNER & TEMPLATES CARD -->
@@ -1155,8 +1204,155 @@ window.fetchMeet = function() {
             if (pinnedEl) {
                 pinnedEl.innerHTML = data.isPinnedForAll ? '<span style="color: #34d399;">📌 Так</span>' : '<span style="color: var(--text-dim);">⚪️ Ні</span>';
             }
+            window.fetchAirAlert();
         })
         .catch(console.error);
+};
+
+window.fetchAirAlert = function() {
+    fetch('/api/meet/air-alert/status')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.status) return;
+            const st = res.status;
+            
+            const sw = document.getElementById('air-alert-monitor-switch');
+            if (sw) sw.checked = !!st.monitoring_enabled;
+            
+            const mText = document.getElementById('air-alert-monitoring-state');
+            if (mText) {
+                if (st.manual_override) {
+                    mText.innerHTML = '<span style="color: #fbbf24;">⚠️ Ручний режим</span>';
+                } else if (st.monitoring_enabled) {
+                    mText.innerHTML = '<span style="color: #34d399;">🟢 Активний (Київ Цифровий)</span>';
+                } else {
+                    mText.innerHTML = '<span style="color: var(--text-dim);">⚪️ Вимкнено</span>';
+                }
+            }
+
+            const pill = document.getElementById('air-alert-status-pill');
+            const lvlEl = document.getElementById('air-alert-level-text');
+
+            if (st.is_alert) {
+                if (st.alert_level === 'yellow') {
+                    if (pill) {
+                        pill.className = 'status-pill warn';
+                        pill.textContent = '🟡 Жовта (Дрони)';
+                    }
+                    if (lvlEl) lvlEl.innerHTML = '<strong style="color: #fbbf24;">🟡 ТРИВОГА: Дронова небезпека</strong>';
+                } else {
+                    if (pill) {
+                        pill.className = 'status-pill down';
+                        pill.textContent = '🔴 Червона тривога';
+                    }
+                    if (lvlEl) lvlEl.innerHTML = '<strong style="color: #f87171;">🔴 ТРИВОГА: Підвищена / ракетна</strong>';
+                }
+            } else if (st.alert_level === 'green') {
+                if (pill) {
+                    pill.className = 'status-pill up';
+                    pill.textContent = '🟢 Відбій тривоги';
+                }
+                if (lvlEl) lvlEl.innerHTML = '<strong style="color: #34d399;">🟢 Відбій (очікування уроку)</strong>';
+            } else {
+                if (pill) {
+                    pill.className = 'status-pill neutral';
+                    pill.textContent = '🟢 Загроз немає';
+                }
+                if (lvlEl) lvlEl.innerHTML = '<span style="color: #34d399;">Спокійно, загроз немає</span>';
+            }
+
+            const stEl = document.getElementById('air-alert-start-time');
+            if (stEl) stEl.textContent = st.alert_start_time || '--';
+
+            const etEl = document.getElementById('air-alert-end-time');
+            if (etEl) {
+                if (st.alert_end_time) {
+                    const durStr = st.alert_duration ? ` (тривала ${st.alert_duration} хв)` : '';
+                    etEl.textContent = `${st.alert_end_time}${durStr}`;
+                } else {
+                    etEl.textContent = '--';
+                }
+            }
+
+            const resEl = document.getElementById('air-alert-resume-time');
+            if (resEl) {
+                if (st.lesson_resumes_at) {
+                    resEl.innerHTML = `<span style="font-size: 1.05rem; color: #38bdf8;">${st.lesson_resumes_at}</span>`;
+                } else {
+                    resEl.textContent = '--';
+                }
+            }
+        })
+        .catch(console.error);
+};
+
+window.onAirAlertMonitorSwitchChanged = function(checkbox) {
+    fetch('/api/meet/air-alert/toggle-monitoring', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enabled: checkbox.checked})
+    })
+    .then(r => r.json())
+    .then(data => {
+        window.fetchAirAlert();
+    })
+    .catch(console.error);
+};
+
+window.triggerAirAlert = function(level) {
+    const lvlName = level === 'yellow' ? 'ЖОВТУ (дрони)' : 'ЧЕРВОНУ (ракетна)';
+    if (!confirm(`Увімкнути ${lvlName} тривогу? Повідомлення надійде в чат Meet і оновиться банер.`)) return;
+    fetch('/api/meet/air-alert/trigger', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({level: level})
+    })
+    .then(r => r.json())
+    .then(data => {
+        window.fetchAirAlert();
+        window.fetchMeet();
+    })
+    .catch(console.error);
+};
+
+window.triggerAirAlertClear = function() {
+    if (!confirm('Оголосити відбій тривоги? Бот розрахує час початку уроку (+10/+20 хв), напише в чат і оновить стрім.')) return;
+    fetch('/api/meet/air-alert/clear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        window.fetchAirAlert();
+        window.fetchMeet();
+    })
+    .catch(console.error);
+};
+
+window.resetAirAlertAuto = function() {
+    fetch('/api/meet/air-alert/reset-auto', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        window.fetchAirAlert();
+    })
+    .catch(console.error);
+};
+
+window.resetAirAlertBanner = function() {
+    if (!confirm('Прибрати плашку тривоги та відновити стандартну заставку?')) return;
+    fetch('/api/meet/air-alert/reset-banner', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        window.fetchAirAlert();
+        window.fetchMeet();
+    })
+    .catch(console.error);
 };
 
 function onMeetSwitchChanged(checkbox) {
