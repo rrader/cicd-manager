@@ -1325,14 +1325,21 @@ def api_vaultwarden_status():
     db_size = "--"
     last_backup = None
     try:
-        cmd = "sh -c \"ls -lh /root/services/bw-data/db.sqlite3 2>/dev/null | awk '{print $5}'; ls -lh /root/services/bw-data-backup* 2>/dev/null | head -n 1 | awk '{print $5, $6, $7, $8, $9}'\""
+        cmd = 'sh -c "ls -lh /root/services/bw-data/db.sqlite3 2>/dev/null; ls -lh /root/services/bw-data-backup* 2>/dev/null"'
         res = exec_host_command(cmd, timeout=5)
         if res.get('success'):
             lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
-            if lines:
-                db_size = lines[0]
-                if len(lines) > 1:
-                    last_backup = lines[1]
+            if len(lines) >= 1:
+                p0 = lines[0].split()
+                if len(p0) >= 5:
+                    db_size = p0[4]
+            if len(lines) >= 2:
+                p1 = lines[1].split()
+                if len(p1) >= 9:
+                    b_size = p1[4]
+                    b_date = f"{p1[5]} {p1[6]} {p1[7]}"
+                    b_name = os.path.basename(p1[8])
+                    last_backup = f"{b_name} ({b_size}, {b_date})"
     except Exception as e:
         print(f"Error checking Vaultwarden status: {e}")
 
