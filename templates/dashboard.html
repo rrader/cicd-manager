@@ -632,8 +632,9 @@
                 </div>
             </div>
 
-            <div class="action-bar" style="margin-top: 0.5rem;">
-                <button class="btn btn-logs" onclick="sendMeetCameraToggle()" id="btn-meet-cam">📷 Перемкнути камеру</button>
+            <div class="action-bar" style="margin-top: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-logs" onclick="sendMeetCameraToggle()" id="btn-meet-cam">📷 Камера</button>
+                <button class="btn btn-logs" onclick="sendMeetMicToggle()" id="btn-meet-mic">🎤 Мікрофон</button>
                 <button class="btn btn-danger" onclick="sendMeetLeave()" id="btn-meet-leave">🚪 Вийти з дзвінка</button>
             </div>
         </div>
@@ -995,6 +996,25 @@ function sendMeetCameraToggle() {
             }
         })
         .catch(err => alert(`Помилка: ${err.message}`));
+}
+
+function sendMeetMicToggle() {
+    const btn = document.getElementById('btn-meet-mic');
+    if (btn) btn.disabled = true;
+    fetch('/api/meet/mic', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (btn) btn.disabled = false;
+            if (data.success) {
+                window.fetchMeet();
+            } else {
+                alert(`Помилка: ${JSON.stringify(data.response || data.error)}`);
+            }
+        })
+        .catch(err => {
+            if (btn) btn.disabled = false;
+            alert(`Помилка: ${err.message}`);
+        });
 }
 
 function sendMeetLeave() {

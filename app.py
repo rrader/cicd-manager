@@ -517,7 +517,18 @@ def api_meet_camera_toggle():
     """Toggle camera in meeting."""
     status_code, resp = http_request(f'{MEET_STREAMER_URL}/camera/toggle', method='POST', timeout=10)
     return jsonify({
-        'success': status_code == 200 and isinstance(resp, dict) and resp.get('status') == 'ok',
+        'success': status_code == 200 and isinstance(resp, dict) and resp.get('ok', True),
+        'response': resp
+    })
+
+
+@app.route('/api/meet/mic', methods=['POST'])
+@login_required
+def api_meet_mic_toggle():
+    """Toggle microphone in meeting."""
+    status_code, resp = http_request(f'{MEET_STREAMER_URL}/mic/toggle', method='POST', timeout=10)
+    return jsonify({
+        'success': status_code == 200 and isinstance(resp, dict) and resp.get('ok', True),
         'response': resp
     })
 
