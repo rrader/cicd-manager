@@ -1,119 +1,492 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CI/CD Manager{% endblock %}</title>
+    <title>{% block title %}Monica Service Hub{% endblock %}</title>
     <style>
+        :root {
+            --bg-body: #0b0f19;
+            --bg-sidebar: #111827;
+            --bg-card: #1e293b;
+            --bg-card-hover: #243046;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-indigo: #6366f1;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
-        
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+
+        /* Top Header */
+        .topbar {
+            background-color: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border-color);
+            height: 60px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
-        
-        .navbar h1 {
-            color: #667eea;
-            font-size: 1.5rem;
-        }
-        
-        .navbar a {
-            color: #667eea;
+
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: #fff;
             text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            transition: background 0.3s;
         }
-        
-        .navbar a:hover {
-            background: rgba(102, 126, 234, 0.1);
+
+        .topbar-brand .logo-icon {
+            font-size: 1.4rem;
         }
-        
-        .container {
+
+        .topbar-brand .host-tag {
+            font-size: 0.75rem;
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .topbar-metrics {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .metric-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border-color);
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .metric-pill strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .topbar-user {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-name {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.3);
+            color: #fff;
+        }
+
+        /* Layout */
+        .layout-container {
+            display: flex;
+            flex: 1;
+            min-height: calc(100vh - 60px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            padding: 0.5rem 0.75rem 0.25rem 0.75rem;
+            font-weight: 700;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.92rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        .nav-item.active {
+            background-color: var(--accent-indigo);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .nav-item .icon {
+            font-size: 1.15rem;
+            width: 22px;
+            text-align: center;
+        }
+
+        .nav-item .badge {
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.15rem 0.45rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main-content {
             flex: 1;
             padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 100%;
+            background-color: var(--bg-body);
+            overflow-y: auto;
+            max-width: 1600px;
         }
-        
+
+        /* Flash Messages */
         .flash-messages {
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
         }
-        
+
         .flash {
-            padding: 1rem;
-            border-radius: 5px;
-            margin-bottom: 0.5rem;
-            animation: slideIn 0.3s ease-out;
+            padding: 0.9rem 1.25rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
         }
-        
+
         .flash.success {
-            background: #10b981;
-            color: white;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--accent-green);
+            color: #34d399;
         }
-        
+
         .flash.error {
-            background: #ef4444;
-            color: white;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--accent-red);
+            color: #f87171;
         }
-        
-        @keyframes slideIn {
-            from {
-                transform: translateY(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
         }
-        
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-width: 900px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 {
+            font-size: 1.1rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .modal-close:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            flex: 1;
+            overflow-y: auto;
+            background: #0a0e17;
+        }
+
+        .terminal-output {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .modal-footer {
+            padding: 0.75rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            background: var(--bg-sidebar);
+        }
+
         {% block extra_style %}{% endblock %}
     </style>
 </head>
 <body>
     {% if session.logged_in %}
-    <nav class="navbar">
-        <h1>🚀 CI/CD Manager</h1>
-        <div>
-            <span style="margin-right: 1rem; color: #666;">Welcome, {{ session.username }}</span>
-            <a href="{{ url_for('logout') }}">Logout</a>
+    <header class="topbar">
+        <a href="{{ url_for('dashboard') }}" class="topbar-brand">
+            <span class="logo-icon">🚀</span>
+            <span>Monica Service Hub</span>
+            <span class="host-tag">monica.rmn.pp.ua</span>
+        </a>
+
+        <div class="topbar-metrics" id="topbar-metrics">
+            <div class="metric-pill" title="Host CPU Usage">
+                <span>CPU</span>
+                <strong id="top-cpu">--%</strong>
+            </div>
+            <div class="metric-pill" title="Host RAM Usage">
+                <span>RAM</span>
+                <strong id="top-ram">--%</strong>
+            </div>
+            <div class="metric-pill" title="Host Swap Usage (4 GB)">
+                <span>SWAP</span>
+                <strong id="top-swap">--%</strong>
+            </div>
+            <div class="metric-pill" title="Host Disk Usage">
+                <span>DISK</span>
+                <strong id="top-disk">--%</strong>
+            </div>
         </div>
-    </nav>
+
+        <div class="topbar-user">
+            <span class="user-name">👤 {{ session.username }}</span>
+            <a href="{{ url_for('logout') }}" class="btn-logout">Вийти</a>
+        </div>
+    </header>
     {% endif %}
-    
-    <div class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-        
-        {% block content %}{% endblock %}
+
+    <div class="layout-container">
+        {% if session.logged_in %}
+        <aside class="sidebar">
+            <div class="sidebar-section-title">Сервісні Панелі</div>
+            
+            <div class="nav-item active" onclick="switchTab('metrics')" id="nav-metrics">
+                <span class="icon">📊</span>
+                <span>Системні метрики</span>
+            </div>
+
+            <div class="nav-item" onclick="switchTab('compose')" id="nav-compose">
+                <span class="icon">🛠</span>
+                <span>CI/CD Сервіси</span>
+                <span class="badge" id="services-badge">{{ services|length }}</span>
+            </div>
+
+            <div class="sidebar-section-title">Мікросервіси</div>
+
+            <div class="nav-item" onclick="switchTab('lightbot')" id="nav-lightbot">
+                <span class="icon">💡</span>
+                <span>Light Bot</span>
+                <span class="badge" id="lightbot-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">ON</span>
+            </div>
+
+            <div class="nav-item" onclick="switchTab('po2bot')" id="nav-po2bot">
+                <span class="icon">🏢</span>
+                <span>Po2Bot</span>
+                <span class="badge" id="po2bot-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">8088</span>
+            </div>
+
+            <div class="nav-item" onclick="switchTab('meet')" id="nav-meet">
+                <span class="icon">🎥</span>
+                <span>Meet Streamer</span>
+                <span class="badge" id="meet-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">Meet</span>
+            </div>
+        </aside>
+        {% endif %}
+
+        <main class="main-content">
+            <div class="flash-messages">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            {% block content %}{% endblock %}
+        </main>
     </div>
-    
+
+    <!-- Terminal Log Modal -->
+    <div class="modal-overlay" id="log-modal" onclick="if(event.target === this) closeLogModal()">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="modal-title">📋 Логи сервісу</h3>
+                <button class="modal-close" onclick="closeLogModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-log-body">
+                <pre class="terminal-output" id="modal-log-text">Завантаження логів...</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="scrollLogToBottom()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">⬇ Вниз</button>
+                <button class="btn btn-primary" onclick="refreshCurrentLogs()" id="modal-refresh-btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; background: #6366f1; color: #fff; border: none; cursor: pointer;">🔄 Оновити</button>
+                <button class="btn btn-secondary" onclick="closeLogModal()" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; cursor: pointer;">Закрити</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentActiveTab = 'metrics';
+        let currentModalTarget = null;
+        let currentModalType = null; // 'compose' or 'container'
+
+        function switchTab(tabId) {
+            currentActiveTab = tabId;
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const activeNav = document.getElementById(`nav-${tabId}`);
+            if (activeNav) activeNav.classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            const targetContent = document.getElementById(`tab-content-${tabId}`);
+            if (targetContent) targetContent.style.display = 'block';
+
+            // Trigger immediate refresh for active tab
+            if (tabId === 'metrics' && window.fetchMetrics) window.fetchMetrics();
+            if (tabId === 'lightbot' && window.fetchLightBot) window.fetchLightBot();
+            if (tabId === 'po2bot' && window.fetchPo2Bot) window.fetchPo2Bot();
+            if (tabId === 'meet' && window.fetchMeet) window.fetchMeet();
+        }
+
+        function openLogModal(title, target, type = 'compose') {
+            currentModalTarget = target;
+            currentModalType = type;
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-log-text').textContent = 'Завантаження логів...';
+            document.getElementById('log-modal').classList.add('active');
+            refreshCurrentLogs();
+        }
+
+        function closeLogModal() {
+            document.getElementById('log-modal').classList.remove('active');
+            currentModalTarget = null;
+        }
+
+        function refreshCurrentLogs() {
+            if (!currentModalTarget) return;
+            const logText = document.getElementById('modal-log-text');
+            const url = currentModalType === 'container' 
+                ? `/api/container/${currentModalTarget}/logs`
+                : `/api/docker-logs/${currentModalTarget}`;
+
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    logText.textContent = data.output || 'Логи порожні';
+                    scrollLogToBottom();
+                })
+                .catch(err => {
+                    logText.textContent = `Помилка отримання логів: ${err.message}`;
+                });
+        }
+
+        function scrollLogToBottom() {
+            const body = document.getElementById('modal-log-body');
+            body.scrollTop = body.scrollHeight;
+        }
+    </script>
     {% block extra_script %}{% endblock %}
 </body>
 </html>
-

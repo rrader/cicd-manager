@@ -1,255 +1,1030 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - CI/CD Manager{% endblock %}
+{% block title %}Дашборд - Monica Service Hub{% endblock %}
 
 {% block extra_style %}
+/* Layout & Cards */
+.tab-content {
+    display: none;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.section-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.section-header h2 {
+    font-size: 1.5rem;
+    color: #fff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.section-header p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+/* Metric Gauges Grid */
+.metrics-gauges-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.gauge-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.gauge-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.gauge-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+
+.gauge-subtext {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.progress-track {
+    background: #0f172a;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+    background: var(--accent-indigo);
+}
+
+.progress-fill.green { background: var(--accent-green); }
+.progress-fill.yellow { background: var(--accent-yellow); }
+.progress-fill.red { background: var(--accent-red); }
+
+/* Containers Table */
+.panel-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.panel-card h3 {
+    font-size: 1.15rem;
+    color: #fff;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.custom-table th {
+    padding: 0.75rem 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.custom-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+    color: var(--text-main);
+    vertical-align: middle;
+}
+
+.custom-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Status Badges */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-pill.up {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-pill.down {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-pill.warn {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Service Grid (Docker Compose) */
 .services-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: 1.5rem;
-    margin-top: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
 }
 
 .service-card {
-    background: white;
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    transition: transform 0.15s, border-color 0.15s;
 }
 
 .service-card:hover {
-    transform: translateY(-5px);
+    border-color: #475569;
+    transform: translateY(-2px);
 }
 
-.service-header {
+.service-card-header {
     display: flex;
     align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e5e7eb;
+    justify-content: space-between;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.6);
 }
 
-.service-name {
-    font-size: 1.25rem;
+.service-title {
+    font-size: 1.1rem;
     font-weight: 600;
-    color: #333;
-    margin-left: 0.5rem;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.service-actions {
+.btn-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
 }
 
 .btn {
-    padding: 0.75rem 1rem;
+    padding: 0.55rem 0.85rem;
     border: none;
-    border-radius: 5px;
-    font-size: 0.9rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.btn:active {
-    transform: translateY(0);
+    gap: 0.4rem;
+    text-decoration: none;
 }
 
 .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
 }
 
-.btn-git {
-    background: #f59e0b;
-    color: white;
-}
+.btn-git { background: #d97706; color: white; }
+.btn-git:hover:not(:disabled) { background: #b45309; }
 
-.btn-build {
-    background: #3b82f6;
-    color: white;
-}
+.btn-build { background: #2563eb; color: white; }
+.btn-build:hover:not(:disabled) { background: #1d4ed8; }
 
-.btn-restart {
-    background: #8b5cf6;
-    color: white;
-}
+.btn-restart { background: #7c3aed; color: white; }
+.btn-restart:hover:not(:disabled) { background: #6d28d9; }
 
-.btn-up {
-    background: #10b981;
-    color: white;
-}
+.btn-up { background: #059669; color: white; }
+.btn-up:hover:not(:disabled) { background: #047857; }
 
-.btn-status {
-    background: #6366f1;
-    color: white;
-    grid-column: span 2;
-}
+.btn-status { background: #4f46e5; color: white; }
+.btn-status:hover:not(:disabled) { background: #4338ca; }
 
-.output-box {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: #1e293b;
-    color: #e2e8f0;
+.btn-logs { background: #334155; color: #f1f5f9; }
+.btn-logs:hover:not(:disabled) { background: #475569; }
+
+.btn-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+.btn-danger:hover:not(:disabled) { background: #ef4444; color: white; }
+
+.btn-sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
     border-radius: 5px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.85rem;
-    max-height: 200px;
-    overflow-y: auto;
-    display: none;
-    white-space: pre-wrap;
-    word-break: break-all;
 }
 
-.output-box.show {
-    display: block;
-    animation: slideDown 0.3s ease-out;
+.action-bar {
+    display: flex;
+    gap: 0.4rem;
 }
 
-.output-box.success {
-    border-left: 4px solid #10b981;
+/* Service Specific Cards (Light Bot, Po2, Meet) */
+.cards-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
-.output-box.error {
-    border-left: 4px solid #ef4444;
+.bot-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
 }
 
-@keyframes slideDown {
-    from {
-        max-height: 0;
-        opacity: 0;
-    }
-    to {
-        max-height: 200px;
-        opacity: 1;
-    }
+.bot-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-.no-build {
-    color: #6b7280;
-    font-size: 0.9rem;
-    text-align: center;
-    padding: 1rem;
-    background: #f3f4f6;
-    border-radius: 5px;
+.bot-card-header h3 {
+    font-size: 1.2rem;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.info-label {
+    color: var(--text-muted);
+}
+
+.info-val {
+    font-weight: 600;
+    color: #fff;
+}
+
+.chat-input-box {
+    display: flex;
+    gap: 0.5rem;
     margin-top: 0.5rem;
 }
 
-.spinner {
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top: 2px solid white;
-    border-radius: 50%;
-    width: 16px;
-    height: 16px;
-    animation: spin 1s linear infinite;
+.chat-input {
+    flex: 1;
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.65rem 0.9rem;
+    color: #fff;
+    font-size: 0.9rem;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.chat-input:focus {
+    outline: none;
+    border-color: var(--accent-indigo);
 }
 {% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <h2 style="color: white; margin-bottom: 0.5rem;">📦 Docker Compose Services</h2>
-    <p style="color: rgba(255,255,255,0.9); font-size: 0.95rem;">
-        Managing: <code style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 3px;">{{ compose_file }}</code>
-    </p>
+<!-- TAB 1: SYSTEM METRICS -->
+<div class="tab-content active" id="tab-content-metrics">
+    <div class="section-header">
+        <div>
+            <h2>📊 Системні метрики хоста Monica</h2>
+            <p>Стан процесора, оперативної пам'яті, 4 GB Swap та активних контейнерів Docker</p>
+        </div>
+        <div>
+            <button class="btn btn-logs" onclick="fetchMetrics()">🔄 Оновити метрики</button>
+        </div>
+    </div>
+
+    <div class="metrics-gauges-grid">
+        <!-- CPU Gauge -->
+        <div class="gauge-card">
+            <div class="gauge-title">
+                <span>ПРОЦЕСОР (CPU)</span>
+                <span id="metric-cpu-cores">-- cores</span>
+            </div>
+            <div class="gauge-value">
+                <span id="metric-cpu-val">0</span>%
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="metric-cpu-bar" style="width: 0%"></div>
+            </div>
+            <div class="gauge-subtext" id="metric-cpu-sub">Завантаження ядер</div>
+        </div>
+
+        <!-- RAM Gauge -->
+        <div class="gauge-card">
+            <div class="gauge-title">
+                <span>ОПЕРАТИВНА ПАМ'ЯТЬ (RAM)</span>
+                <span id="metric-ram-percent">--%</span>
+            </div>
+            <div class="gauge-value">
+                <span id="metric-ram-used">0</span> <small style="font-size: 1rem; color: var(--text-muted);">/ <span id="metric-ram-total">0</span> GB</small>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="metric-ram-bar" style="width: 0%"></div>
+            </div>
+            <div class="gauge-subtext" id="metric-ram-sub">Доступно: -- GB</div>
+        </div>
+
+        <!-- SWAP Gauge -->
+        <div class="gauge-card">
+            <div class="gauge-title">
+                <span>SWAP (ФАЙЛ ПІДКАЧКИ 4 GB)</span>
+                <span id="metric-swap-percent">--%</span>
+            </div>
+            <div class="gauge-value">
+                <span id="metric-swap-used">0</span> <small style="font-size: 1rem; color: var(--text-muted);">/ <span id="metric-swap-total">4.0</span> GB</small>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="metric-swap-bar" style="width: 0%"></div>
+            </div>
+            <div class="gauge-subtext" id="metric-swap-sub">Вільний swap: -- GB</div>
+        </div>
+
+        <!-- DISK Gauge -->
+        <div class="gauge-card">
+            <div class="gauge-title">
+                <span>СИСТЕМНИЙ ДИСК (ROOT)</span>
+                <span id="metric-disk-percent">--%</span>
+            </div>
+            <div class="gauge-value">
+                <span id="metric-disk-used">0</span> <small style="font-size: 1rem; color: var(--text-muted);">/ <span id="metric-disk-total">0</span> GB</small>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="metric-disk-bar" style="width: 0%"></div>
+            </div>
+            <div class="gauge-subtext" id="metric-disk-sub">Вільно: -- GB</div>
+        </div>
+    </div>
+
+    <!-- Docker Containers Table -->
+    <div class="panel-card">
+        <h3>🐳 Активні Docker контейнери</h3>
+        <div class="table-responsive">
+            <table class="custom-table" id="containers-table">
+                <thead>
+                    <tr>
+                        <th>Контейнер</th>
+                        <th>Статус</th>
+                        <th>CPU %</th>
+                        <th>Пам'ять (RAM)</th>
+                        <th>Образ</th>
+                        <th style="text-align: right;">Дії</th>
+                    </tr>
+                </thead>
+                <tbody id="containers-tbody">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">Опитування контейнерів...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
-<div class="services-grid">
-    {% for service_name, service_info in services.items() %}
-    <div class="service-card" id="service-{{ service_name }}">
-        <div class="service-header">
-            <span style="font-size: 2rem;">🐳</span>
-            <div class="service-name">{{ service_name }}</div>
+<!-- TAB 2: CI/CD SERVICES (DOCKER COMPOSE) -->
+<div class="tab-content" id="tab-content-compose">
+    <div class="section-header">
+        <div>
+            <h2>🛠 Docker Compose Сервіси</h2>
+            <p>Керування стеком у <code style="background: rgba(255,255,255,0.1); padding: 0.15rem 0.4rem; border-radius: 4px;">{{ compose_file }}</code></p>
         </div>
-        
-        <div class="service-actions">
-            {% if service_info.has_build and service_info.build_context %}
-            <button class="btn btn-git" onclick="runAction('{{ service_name }}', 'git-pull')" id="btn-git-{{ service_name }}">
-                📥 Git Pull
-            </button>
-            <button class="btn btn-build" onclick="runAction('{{ service_name }}', 'docker-build')" id="btn-build-{{ service_name }}">
-                🔨 Build
-            </button>
-            {% else %}
-            <div class="no-build" style="grid-column: span 2;">No build configuration</div>
-            {% endif %}
-            <button class="btn btn-restart" onclick="runAction('{{ service_name }}', 'docker-restart')" id="btn-restart-{{ service_name }}">
-                🔄 Restart
-            </button>
-            <button class="btn btn-up" onclick="runAction('{{ service_name }}', 'docker-up')" id="btn-up-{{ service_name }}">
-                ▶️ Up
-            </button>
-            <button class="btn btn-status" onclick="runAction('{{ service_name }}', 'docker-status')" id="btn-status-{{ service_name }}">
-                📊 Status
-            </button>
-        </div>
-        
-        <div class="output-box" id="output-{{ service_name }}"></div>
     </div>
-    {% endfor %}
+
+    <div class="services-grid">
+        {% for service_name, service_info in services.items() %}
+        <div class="service-card" id="compose-service-{{ service_name }}">
+            <div class="service-card-header">
+                <div class="service-title">
+                    <span>📦</span>
+                    <span>{{ service_name }}</span>
+                </div>
+                <button class="btn btn-sm btn-logs" onclick="openLogModal('Логи {{ service_name }}', '{{ service_name }}', 'compose')">📋 Логи</button>
+            </div>
+
+            <div class="btn-grid">
+                {% if service_info.has_build and service_info.build_context %}
+                <button class="btn btn-git" onclick="runComposeAction('{{ service_name }}', 'git-pull')" id="btn-git-{{ service_name }}">
+                    📥 Git Pull
+                </button>
+                <button class="btn btn-build" onclick="runComposeAction('{{ service_name }}', 'docker-build')" id="btn-build-{{ service_name }}">
+                    🔨 Build
+                </button>
+                {% else %}
+                <div style="grid-column: span 2; text-align: center; font-size: 0.78rem; color: var(--text-dim); padding: 0.3rem; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                    Збірка не потрібна (pre-built image)
+                </div>
+                {% endif %}
+
+                <button class="btn btn-restart" onclick="runComposeAction('{{ service_name }}', 'docker-restart')" id="btn-restart-{{ service_name }}">
+                    🔄 Restart
+                </button>
+                <button class="btn btn-up" onclick="runComposeAction('{{ service_name }}', 'docker-up')" id="btn-up-{{ service_name }}">
+                    ▶️ Up -d
+                </button>
+            </div>
+            
+            <button class="btn btn-status" style="width: 100%;" onclick="runComposeAction('{{ service_name }}', 'docker-status')" id="btn-status-{{ service_name }}">
+                📊 Перевірити статус
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- TAB 3: LIGHT BOT -->
+<div class="tab-content" id="tab-content-lightbot">
+    <div class="section-header">
+        <div>
+            <h2>💡 Light Bot (Моніторинг відключень світла)</h2>
+            <p>Синхронізація фактичного живлення з графіками Ясно/ВОЕ та каналами сповіщень</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="openLogModal('Логи Light Bot', 'light-bot', 'container')">📋 Логи</button>
+            <button class="btn btn-restart" onclick="runContainerAction('light-bot', 'restart')">🔄 Рестарт контейнера</button>
+            <button class="btn btn-logs" onclick="fetchLightBot()">🔄 Оновити</button>
+        </div>
+    </div>
+
+    <div class="cards-row" id="lightbot-locations-container">
+        <div style="color: var(--text-muted);">Завантаження локацій...</div>
+    </div>
+</div>
+
+<!-- TAB 4: PO2BOT -->
+<div class="tab-content" id="tab-content-po2bot">
+    <div class="section-header">
+        <div>
+            <h2>🏢 Po2Bot (ОСББ Бот Верифікації)</h2>
+            <p>Управління ботом реєстрації мешканців та перевірка зв'язку з Google Sheets</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="openLogModal('Логи Po2Bot', 'po2bot', 'container')">📋 Логи</button>
+            <button class="btn btn-restart" onclick="runContainerAction('po2bot', 'restart')">🔄 Рестарт бота</button>
+            <button class="btn btn-logs" onclick="fetchPo2Bot()">🔄 Оновити</button>
+        </div>
+    </div>
+
+    <div class="cards-row">
+        <!-- Po2Bot Health Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>🤖</span> Стан сервісу Po2Bot</h3>
+                <span class="status-pill up" id="po2-status-pill">Працює</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">HTTP API порт:</span>
+                    <span class="info-val">8088 (/health, /status, /pending)</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Час безперервної роботи (Uptime):</span>
+                    <span class="info-val" id="po2-uptime">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Google Sheets зв'язок:</span>
+                    <span class="info-val" id="po2-sheets">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Таблиця власників:</span>
+                    <span class="info-val" id="po2-worksheet">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Таблиця співмешканців:</span>
+                    <span class="info-val" id="po2-roommates">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">OpenAI API:</span>
+                    <span class="info-val" id="po2-openai">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Verifications Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>📝</span> Заявки на верифікацію</h3>
+                <span class="status-pill warn" id="po2-pending-count-badge">0 очікують</span>
+            </div>
+
+            <div id="po2-pending-list" style="max-height: 220px; overflow-y: auto; font-size: 0.88rem;">
+                <p style="color: var(--text-dim); text-align: center; padding: 2rem 0;">Немає нерозглянутих заявок</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TAB 5: MEET STREAMER -->
+<div class="tab-content" id="tab-content-meet">
+    <div class="section-header">
+        <div>
+            <h2>🎥 Google Meet Streamer</h2>
+            <p>Автономний бот для трансляцій та інженерного клубу в Google Meet</p>
+        </div>
+        <div class="action-bar">
+            <a href="https://meet.rmn.pp.ua" target="_blank" class="btn btn-build">🖥 KasmVNC Web UI</a>
+            <button class="btn btn-logs" onclick="openLogModal('Логи Meet Streamer', 'meet-streamer', 'container')">📋 Логи</button>
+            <button class="btn btn-restart" onclick="runContainerAction('meet-streamer', 'restart')">🔄 Рестарт контейнера</button>
+            <button class="btn btn-logs" onclick="fetchMeet()">🔄 Оновити</button>
+        </div>
+    </div>
+
+    <div class="cards-row">
+        <!-- Live Status Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>📹</span> Поточна сесія Google Meet</h3>
+                <span class="status-pill down" id="meet-status-pill">Зупинено</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Кімната:</span>
+                    <span class="info-val"><a href="https://meet.google.com/moj-zweh-zpq" target="_blank" style="color: #60a5fa; text-decoration: none;" id="meet-room-link">moj-zweh-zpq ↗</a></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Заголовок дзвінка:</span>
+                    <span class="info-val" id="meet-title">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Учасників у дзвінку:</span>
+                    <span class="info-val" id="meet-participants">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Камера:</span>
+                    <span class="info-val" id="meet-camera">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Мікрофон:</span>
+                    <span class="info-val" id="meet-mic">--</span>
+                </div>
+            </div>
+
+            <div class="action-bar" style="margin-top: 0.5rem;">
+                <button class="btn btn-logs" onclick="sendMeetCameraToggle()" id="btn-meet-cam">📷 Перемкнути камеру</button>
+                <button class="btn btn-danger" onclick="sendMeetLeave()" id="btn-meet-leave">🚪 Вийти з дзвінка</button>
+            </div>
+        </div>
+
+        <!-- In-Call Chat Sender Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>💬</span> Надіслати повідомлення у чат Meet</h3>
+            </div>
+            <p style="font-size: 0.88rem; color: var(--text-muted);">
+                Повідомлення буде надруковано та надіслано ботом безпосередньо у внутрішній текстовий чат поточної конференції Google Meet.
+            </p>
+
+            <div class="chat-input-box">
+                <input type="text" class="chat-input" id="meet-chat-input" placeholder="Введіть текст повідомлення для учнів..." onkeydown="if(event.key==='Enter') sendMeetChatMessage()">
+                <button class="btn btn-up" onclick="sendMeetChatMessage()" id="btn-meet-send-chat">📤 Надіслати</button>
+            </div>
+            <div id="meet-chat-result" style="font-size: 0.8rem; margin-top: 0.25rem;"></div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_script %}
 <script>
-function runAction(service, action) {
-    const outputBox = document.getElementById(`output-${service}`);
-    const buttons = document.querySelectorAll(`#service-${service} .btn`);
-    const actionBtn = document.getElementById(`btn-${action}-${service}`);
-    
-    // Disable all buttons for this service
-    buttons.forEach(btn => btn.disabled = true);
-    
-    // Show spinner in button
-    if (actionBtn) {
-        const originalText = actionBtn.innerHTML;
-        actionBtn.innerHTML = '<div class="spinner"></div> Running...';
-    }
-    
-    // Show output box with loading message
-    outputBox.textContent = 'Running command...';
-    outputBox.className = 'output-box show';
-    
-    fetch(`/api/${action}/${service}`)
-        .then(response => response.json())
+// Format Bytes helper
+function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const dm = 1;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// Format Seconds
+function formatUptime(seconds) {
+    if (!seconds) return '0s';
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (d > 0) return `${d}д ${h}г ${m}хв`;
+    if (h > 0) return `${h}г ${m}хв`;
+    if (m > 0) return `${m}хв ${s}с`;
+    return `${s}с`;
+}
+
+// 1. SYSTEM METRICS POLLING
+window.fetchMetrics = function() {
+    fetch('/api/system/metrics')
+        .then(r => r.json())
         .then(data => {
-            outputBox.textContent = data.output || 'No output';
-            outputBox.className = `output-box show ${data.success ? 'success' : 'error'}`;
-            
-            // Re-enable buttons
-            buttons.forEach(btn => btn.disabled = false);
-            
-            // Restore button text
-            if (actionBtn) {
-                actionBtn.innerHTML = originalText;
+            if (!data.success) return;
+
+            // Topbar
+            document.getElementById('top-cpu').textContent = `${data.cpu.percent}%`;
+            document.getElementById('top-ram').textContent = `${data.ram.percent}%`;
+            document.getElementById('top-swap').textContent = `${data.swap.percent}%`;
+            document.getElementById('top-disk').textContent = `${data.disk.percent}%`;
+
+            // Gauges
+            document.getElementById('metric-cpu-cores').textContent = `${data.cpu.count} cores`;
+            document.getElementById('metric-cpu-val').textContent = data.cpu.percent;
+            const cpuBar = document.getElementById('metric-cpu-bar');
+            cpuBar.style.width = `${data.cpu.percent}%`;
+            cpuBar.className = `progress-fill ${data.cpu.percent > 85 ? 'red' : (data.cpu.percent > 65 ? 'yellow' : 'green')}`;
+
+            // RAM
+            document.getElementById('metric-ram-percent').textContent = `${data.ram.percent}%`;
+            document.getElementById('metric-ram-used').textContent = (data.ram.used / (1024**3)).toFixed(1);
+            document.getElementById('metric-ram-total').textContent = (data.ram.total / (1024**3)).toFixed(1);
+            const ramBar = document.getElementById('metric-ram-bar');
+            ramBar.style.width = `${data.ram.percent}%`;
+            ramBar.className = `progress-fill ${data.ram.percent > 85 ? 'red' : (data.ram.percent > 70 ? 'yellow' : 'green')}`;
+            document.getElementById('metric-ram-sub').textContent = `Доступно: ${(data.ram.available / (1024**3)).toFixed(1)} GB`;
+
+            // SWAP
+            document.getElementById('metric-swap-percent').textContent = `${data.swap.percent}%`;
+            document.getElementById('metric-swap-used').textContent = (data.swap.used / (1024**3)).toFixed(1);
+            document.getElementById('metric-swap-total').textContent = (data.swap.total / (1024**3)).toFixed(1);
+            const swapBar = document.getElementById('metric-swap-bar');
+            swapBar.style.width = `${data.swap.percent}%`;
+            swapBar.className = `progress-fill ${data.swap.percent > 80 ? 'red' : (data.swap.percent > 50 ? 'yellow' : 'green')}`;
+            document.getElementById('metric-swap-sub').textContent = `Вільно: ${(data.swap.free / (1024**3)).toFixed(1)} GB`;
+
+            // DISK
+            document.getElementById('metric-disk-percent').textContent = `${data.disk.percent}%`;
+            document.getElementById('metric-disk-used').textContent = (data.disk.used / (1024**3)).toFixed(1);
+            document.getElementById('metric-disk-total').textContent = (data.disk.total / (1024**3)).toFixed(1);
+            const diskBar = document.getElementById('metric-disk-bar');
+            diskBar.style.width = `${data.disk.percent}%`;
+            diskBar.className = `progress-fill ${data.disk.percent > 85 ? 'red' : (data.disk.percent > 75 ? 'yellow' : 'green')}`;
+            document.getElementById('metric-disk-sub').textContent = `Вільно: ${(data.disk.free / (1024**3)).toFixed(1)} GB`;
+
+            // Containers Table
+            const tbody = document.getElementById('containers-tbody');
+            if (data.containers && data.containers.length > 0) {
+                tbody.innerHTML = data.containers.map(c => `
+                    <tr>
+                        <td>
+                            <strong style="color: #fff;">${c.name}</strong>
+                        </td>
+                        <td>
+                            <span class="status-pill ${c.state === 'running' ? 'up' : 'down'}">
+                                ${c.state === 'running' ? '🟢' : '🔴'} ${c.status}
+                            </span>
+                        </td>
+                        <td>${c.cpu}</td>
+                        <td>${c.mem_usage} <small style="color: var(--text-dim);">(${c.mem_percent})</small></td>
+                        <td style="color: var(--text-muted); font-size: 0.82rem;">${c.image}</td>
+                        <td style="text-align: right;">
+                            <div class="action-bar" style="justify-content: flex-end;">
+                                <button class="btn btn-sm btn-logs" onclick="openLogModal('Логи ${c.name}', '${c.name}', 'container')">📋</button>
+                                <button class="btn btn-sm btn-restart" onclick="runContainerAction('${c.name}', 'restart')">🔄</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
             }
         })
-        .catch(error => {
-            outputBox.textContent = `Error: ${error.message}`;
-            outputBox.className = 'output-box show error';
-            buttons.forEach(btn => btn.disabled = false);
-            
-            if (actionBtn) {
-                actionBtn.innerHTML = originalText;
+        .catch(console.error);
+};
+
+// 2. DOCKER COMPOSE ACTIONS
+function runComposeAction(service, action) {
+    const btn = document.getElementById(`btn-${action.replace('docker-', '')}-${service}`) || document.getElementById(`btn-${action}-${service}`);
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ ...';
+    }
+
+    fetch(`/api/${action}/${service}`)
+        .then(r => r.json())
+        .then(data => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             }
+            openLogModal(`Результат: ${action} (${service})`, service, 'compose');
+            document.getElementById('modal-log-text').textContent = data.output || (data.success ? 'Успішно виконано' : 'Помилка');
+        })
+        .catch(err => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+            alert(`Помилка: ${err.message}`);
         });
 }
+
+function runContainerAction(name, action) {
+    if (!confirm(`Виконати ${action} для контейнера ${name}?`)) return;
+    fetch(`/api/container/${name}/${action}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            alert(data.success ? `Контейнер ${name} ${action} успішно!` : `Помилка: ${data.output}`);
+            if (window.fetchMetrics) window.fetchMetrics();
+        })
+        .catch(err => alert(`Помилка: ${err.message}`));
+}
+
+// 3. LIGHT BOT
+window.fetchLightBot = function() {
+    fetch('/api/light-bot/status')
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('lightbot-locations-container');
+            if (!data.success || !data.locations) {
+                container.innerHTML = `<div style="color: #f87171;">Light Bot недоступний: ${data.error || 'помилка'}</div>`;
+                return;
+            }
+
+            container.innerHTML = data.locations.map(loc => {
+                const isOn = loc.status === 'on';
+                const statusPill = isOn
+                    ? '<span class="status-pill up">🟢 Світло є (ON)</span>'
+                    : '<span class="status-pill down">🔴 Відключення (OFF)</span>';
+                
+                const staleWarning = loc.stale
+                    ? `<div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; color: #fbbf24;">
+                        ⚠️ Немає пінгів від роутера: останнє оновлення ${loc.age_display}
+                       </div>`
+                    : '';
+
+                const toggleBtn = isOn
+                    ? `<button class="btn btn-danger" style="width: 100%;" onclick="toggleLightStatus('${loc.id}', 'off')">🔴 Вимкнути світло (поставити OFF)</button>`
+                    : `<button class="btn btn-up" style="width: 100%;" onclick="toggleLightStatus('${loc.id}', 'on')">🟢 Увімкнути світло (поставити ON)</button>`;
+
+                return `
+                    <div class="bot-card">
+                        <div class="bot-card-header">
+                            <h3><span>📍</span> ${loc.name} (${loc.id})</h3>
+                            ${statusPill}
+                        </div>
+
+                        ${staleWarning}
+
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Поточний статус:</span>
+                                <span class="info-val" style="color: ${isOn ? '#34d399' : '#f87171'}; font-size: 1.05rem;">
+                                    ${isOn ? 'СВІТЛО Є' : 'ВІДКЛЮЧЕННЯ'}
+                                </span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Останнє оновлення:</span>
+                                <span class="info-val">${loc.age_display}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Група графіку:</span>
+                                <span class="info-val">${loc.yasno_group || 'Немає'}</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 0.5rem;">
+                            ${toggleBtn}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        })
+        .catch(err => {
+            document.getElementById('lightbot-locations-container').innerHTML = `<div style="color: #f87171;">Помилка: ${err.message}</div>`;
+        });
+};
+
+function toggleLightStatus(locId, newStatus) {
+    if (!confirm(`Ви впевнені, що хочете перемкнути статус ${locId} на '${newStatus.toUpperCase()}'? Це надішле сповіщення в канал, якщо статус змінився!`)) {
+        return;
+    }
+
+    fetch(`/api/light-bot/toggle/${locId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Статус ${locId} змінено на ${newStatus}!`);
+            window.fetchLightBot();
+        } else {
+            alert(`Помилка оновлення: ${JSON.stringify(data.response || data.error)}`);
+        }
+    })
+    .catch(err => alert(`Помилка: ${err.message}`));
+}
+
+// 4. PO2BOT
+window.fetchPo2Bot = function() {
+    fetch('/api/po2bot/status')
+        .then(r => r.json())
+        .then(data => {
+            const pill = document.getElementById('po2-status-pill');
+            if (data.status === 'running') {
+                pill.className = 'status-pill up';
+                pill.textContent = '🟢 Працює';
+                document.getElementById('po2-uptime').textContent = formatUptime(data.uptime_seconds);
+                document.getElementById('po2-sheets').innerHTML = data.google_sheets_connected ? '<span style="color: #34d399;">🟢 Підключено</span>' : '<span style="color: #f87171;">🔴 Помилка</span>';
+                document.getElementById('po2-worksheet').textContent = data.worksheet || '--';
+                document.getElementById('po2-roommates').textContent = data.roommates_worksheet || '--';
+                document.getElementById('po2-openai').innerHTML = data.openai_connected ? '<span style="color: #34d399;">🟢 Підключено</span>' : '<span style="color: #f87171;">🔴 Немає ключа</span>';
+                document.getElementById('po2-pending-count-badge').textContent = `${data.pending_count || 0} очікують`;
+            } else {
+                pill.className = 'status-pill down';
+                pill.textContent = '🔴 Зупинено';
+            }
+        })
+        .catch(console.error);
+
+    fetch('/api/po2bot/pending')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('po2-pending-list');
+            if (data.pending && data.pending.length > 0) {
+                list.innerHTML = data.pending.map(p => `
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.65rem 0.9rem; margin-bottom: 0.5rem;">
+                        <div style="display: flex; justify-content: space-between; font-weight: 600; color: #fff;">
+                            <span>Квартира: ${p.apartment || 'Не вказано'}</span>
+                            <span style="color: var(--text-dim); font-size: 0.75rem;">ID: ${p.user_id}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                            📞 ${p.phone} | Тип: ${p.user_type || 'Власник'} | Док: ${p.document_type || 'Документ'}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                list.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 2rem 0;">Немає нерозглянутих заявок</p>';
+            }
+        })
+        .catch(console.error);
+};
+
+// 5. MEET STREAMER
+window.fetchMeet = function() {
+    fetch('/api/meet/status')
+        .then(r => r.json())
+        .then(data => {
+            const pill = document.getElementById('meet-status-pill');
+            if (data.inMeeting) {
+                pill.className = 'status-pill up';
+                pill.textContent = '🟢 В дзвінку';
+            } else {
+                pill.className = 'status-pill down';
+                pill.textContent = '⚪️ Поза дзвінком';
+            }
+
+            document.getElementById('meet-title').textContent = data.title || (data.inMeeting ? 'Meet: moj-zweh-zpq' : 'Дзвінок не розпочато');
+            document.getElementById('meet-participants').textContent = data.participantsCount !== undefined ? `${data.participantsCount} осіб` : '--';
+            document.getElementById('meet-camera').innerHTML = data.cameraActive ? '<span style="color: #34d399;">🟢 Увімкнена</span>' : '<span style="color: var(--text-dim);">⚪️ Вимкнена</span>';
+            document.getElementById('meet-mic').innerHTML = data.micMuted ? '<span style="color: var(--text-muted);">🔇 Заглушений</span>' : '<span style="color: #34d399;">🎤 Увімкнений</span>';
+        })
+        .catch(console.error);
+};
+
+function sendMeetChatMessage() {
+    const input = document.getElementById('meet-chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    const btn = document.getElementById('btn-meet-send-chat');
+    btn.disabled = true;
+    const resDiv = document.getElementById('meet-chat-result');
+    resDiv.textContent = 'Надсилання...';
+    resDiv.style.color = '#94a3b8';
+
+    fetch('/api/meet/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        if (data.success) {
+            input.value = '';
+            resDiv.textContent = '✅ Повідомлення надіслано в Meet!';
+            resDiv.style.color = '#34d399';
+            setTimeout(() => { resDiv.textContent = ''; }, 4000);
+        } else {
+            resDiv.textContent = `❌ Помилка: ${data.response?.error || 'не вдалося надіслати'}`;
+            resDiv.style.color = '#f87171';
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        resDiv.textContent = `❌ Помилка: ${err.message}`;
+        resDiv.style.color = '#f87171';
+    });
+}
+
+function sendMeetCameraToggle() {
+    fetch('/api/meet/camera', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('Стан камери змінено!');
+                window.fetchMeet();
+            } else {
+                alert(`Помилка: ${JSON.stringify(data.response)}`);
+            }
+        })
+        .catch(err => alert(`Помилка: ${err.message}`));
+}
+
+function sendMeetLeave() {
+    if (!confirm('Вийти з конференції Google Meet?')) return;
+    fetch('/api/meet/leave', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            alert('Бот залишив дзвінок');
+            window.fetchMeet();
+        })
+        .catch(err => alert(`Помилка: ${err.message}`));
+}
+
+// Initial fetch & 5s interval loop
+document.addEventListener('DOMContentLoaded', () => {
+    fetchMetrics();
+    fetchLightBot();
+    fetchPo2Bot();
+    fetchMeet();
+
+    setInterval(() => {
+        if (currentActiveTab === 'metrics') fetchMetrics();
+        if (currentActiveTab === 'lightbot') fetchLightBot();
+        if (currentActiveTab === 'po2bot') fetchPo2Bot();
+        if (currentActiveTab === 'meet') fetchMeet();
+    }, 5000);
+});
 </script>
 {% endblock %}
-
