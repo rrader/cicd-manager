@@ -177,6 +177,74 @@
     border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
+.status-pill.neutral {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* Meet Toggle Switch */
+.toggle-switch-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #334155;
+    transition: 0.25s ease;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: #94a3b8;
+    transition: 0.25s ease;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #10b981;
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+    background-color: #ffffff;
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Service Grid (Docker Compose) */
 .services-grid {
     display: grid;
@@ -605,7 +673,13 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>📹</span> Поточна сесія Google Meet</h3>
-                <span class="status-pill down" id="meet-status-pill">Зупинено</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Перемикач: увійти у дзвінок / вийти">
+                        <input type="checkbox" id="meet-call-switch" onchange="onMeetSwitchChanged(this)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill neutral" id="meet-status-pill" style="cursor: pointer;" onclick="toggleMeetCall()" title="Натисніть для перемикання">⚪️ Поза дзвінком</span>
+                </div>
             </div>
 
             <div class="info-list">
@@ -632,9 +706,9 @@
             </div>
 
             <div class="action-bar" style="margin-top: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-up" onclick="toggleMeetCall()" id="btn-meet-call-toggle">🚀 Увійти у дзвінок</button>
                 <button class="btn btn-logs" onclick="sendMeetCameraToggle()" id="btn-meet-cam">📷 Камера</button>
                 <button class="btn btn-logs" onclick="sendMeetMicToggle()" id="btn-meet-mic">🎤 Мікрофон</button>
-                <button class="btn btn-danger" onclick="sendMeetLeave()" id="btn-meet-leave">🚪 Вийти з дзвінка</button>
             </div>
         </div>
 
@@ -1017,26 +1091,150 @@ window.fetchPo2Bot = function() {
 };
 
 // 5. MEET STREAMER
+let currentMeetInMeeting = false;
+let isMeetToggling = false;
+
 window.fetchMeet = function() {
     fetch('/api/meet/status')
         .then(r => r.json())
         .then(data => {
+            if (isMeetToggling) return;
+            currentMeetInMeeting = !!data.inMeeting;
             const pill = document.getElementById('meet-status-pill');
-            if (data.inMeeting) {
-                pill.className = 'status-pill up';
-                pill.textContent = '🟢 В дзвінку';
-            } else {
-                pill.className = 'status-pill down';
-                pill.textContent = '⚪️ Поза дзвінком';
+            const sw = document.getElementById('meet-call-switch');
+            const callBtn = document.getElementById('btn-meet-call-toggle');
+            const camBtn = document.getElementById('btn-meet-cam');
+            const micBtn = document.getElementById('btn-meet-mic');
+
+            if (sw) {
+                sw.checked = currentMeetInMeeting;
+                sw.disabled = false;
             }
 
-            document.getElementById('meet-title').textContent = data.title || (data.inMeeting ? 'Meet: moj-zweh-zpq' : 'Дзвінок не розпочато');
+            if (currentMeetInMeeting) {
+                if (pill) {
+                    pill.className = 'status-pill up';
+                    pill.textContent = '🟢 В дзвінку';
+                    pill.title = 'Натисніть, щоб вийти з дзвінка';
+                }
+                if (callBtn) {
+                    callBtn.className = 'btn btn-danger';
+                    callBtn.innerHTML = '🚪 Вийти з дзвінка';
+                    callBtn.disabled = false;
+                }
+                if (camBtn) camBtn.disabled = false;
+                if (micBtn) micBtn.disabled = false;
+            } else {
+                if (pill) {
+                    pill.className = 'status-pill neutral';
+                    pill.textContent = '⚪️ Поза дзвінком';
+                    pill.title = 'Натисніть, щоб увійти у дзвінок';
+                }
+                if (callBtn) {
+                    callBtn.className = 'btn btn-up';
+                    callBtn.innerHTML = '🚀 Увійти у дзвінок';
+                    callBtn.disabled = false;
+                }
+                if (camBtn) camBtn.disabled = true;
+                if (micBtn) micBtn.disabled = true;
+            }
+
+            document.getElementById('meet-title').textContent = data.title || (currentMeetInMeeting ? 'Meet: moj-zweh-zpq' : 'Дзвінок не розпочато');
             document.getElementById('meet-participants').textContent = data.participantsCount !== undefined ? `${data.participantsCount} осіб` : '--';
             document.getElementById('meet-camera').innerHTML = data.cameraActive ? '<span style="color: #34d399;">🟢 Увімкнена</span>' : '<span style="color: var(--text-dim);">⚪️ Вимкнена</span>';
             document.getElementById('meet-mic').innerHTML = data.micMuted ? '<span style="color: var(--text-muted);">🔇 Заглушений</span>' : '<span style="color: #34d399;">🎤 Увімкнений</span>';
         })
         .catch(console.error);
 };
+
+function onMeetSwitchChanged(checkbox) {
+    if (isMeetToggling) return;
+    if (checkbox.checked) {
+        doMeetJoin();
+    } else {
+        if (!confirm('Вийти з конференції Google Meet?')) {
+            checkbox.checked = true;
+            return;
+        }
+        doMeetLeave();
+    }
+}
+
+function toggleMeetCall() {
+    if (isMeetToggling) return;
+    if (currentMeetInMeeting) {
+        if (!confirm('Вийти з конференції Google Meet?')) return;
+        doMeetLeave();
+    } else {
+        doMeetJoin();
+    }
+}
+
+function doMeetJoin() {
+    isMeetToggling = true;
+    const pill = document.getElementById('meet-status-pill');
+    const sw = document.getElementById('meet-call-switch');
+    const callBtn = document.getElementById('btn-meet-call-toggle');
+    if (pill) {
+        pill.className = 'status-pill warn';
+        pill.textContent = '⏳ Підключення...';
+    }
+    if (sw) {
+        sw.checked = true;
+        sw.disabled = true;
+    }
+    if (callBtn) {
+        callBtn.disabled = true;
+        callBtn.innerHTML = '⏳ Вхід у дзвінок...';
+    }
+
+    fetch('/api/meet/join', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            setTimeout(() => {
+                isMeetToggling = false;
+                window.fetchMeet();
+            }, 4000);
+        })
+        .catch(err => {
+            isMeetToggling = false;
+            alert(`Помилка підключення: ${err.message}`);
+            window.fetchMeet();
+        });
+}
+
+function doMeetLeave() {
+    isMeetToggling = true;
+    const pill = document.getElementById('meet-status-pill');
+    const sw = document.getElementById('meet-call-switch');
+    const callBtn = document.getElementById('btn-meet-call-toggle');
+    if (pill) {
+        pill.className = 'status-pill warn';
+        pill.textContent = '⏳ Вихід...';
+    }
+    if (sw) {
+        sw.checked = false;
+        sw.disabled = true;
+    }
+    if (callBtn) {
+        callBtn.disabled = true;
+        callBtn.innerHTML = '⏳ Завершення...';
+    }
+
+    fetch('/api/meet/leave', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            setTimeout(() => {
+                isMeetToggling = false;
+                window.fetchMeet();
+            }, 1500);
+        })
+        .catch(err => {
+            isMeetToggling = false;
+            alert(`Помилка виходу: ${err.message}`);
+            window.fetchMeet();
+        });
+}
 
 function sendMeetChatMessage() {
     const input = document.getElementById('meet-chat-input');
@@ -1105,17 +1303,6 @@ function sendMeetMicToggle() {
             if (btn) btn.disabled = false;
             alert(`Помилка: ${err.message}`);
         });
-}
-
-function sendMeetLeave() {
-    if (!confirm('Вийти з конференції Google Meet?')) return;
-    fetch('/api/meet/leave', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            alert('Бот залишив дзвінок');
-            window.fetchMeet();
-        })
-        .catch(err => alert(`Помилка: ${err.message}`));
 }
 
 let bannerTemplates = [];

@@ -738,15 +738,49 @@ def api_meet_mic_toggle():
     })
 
 
+@app.route('/api/meet/join', methods=['POST'])
+@login_required
+def api_meet_join():
+    """Start meet-streamer container and join Google Meet."""
+    try:
+        status_code, data = http_request(f'{MEET_STREAMER_URL}/status', timeout=3)
+        if status_code == 200 and isinstance(data, dict) and data.get('inMeeting'):
+            return jsonify({'success': True, 'message': 'Бот уже у дзвінку', 'inMeeting': True})
+
+        if status_code == 200:
+            cmd = "docker compose -f /opt/school-meet-streamer/docker-compose.yml restart"
+        else:
+            cmd = "docker compose -f /opt/school-meet-streamer/docker-compose.yml up -d"
+
+        res = exec_host_command(cmd, timeout=30)
+        return jsonify({
+            'success': res.get('success', False),
+            'output': res.get('output', ''),
+            'message': 'Запущено підключення до Google Meet'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/meet/leave', methods=['POST'])
 @login_required
 def api_meet_leave():
-    """Leave current meeting."""
-    status_code, resp = http_request(f'{MEET_STREAMER_URL}/leave', method='POST', timeout=10)
-    return jsonify({
-        'success': status_code == 200,
-        'response': resp
-    })
+    """Leave current meeting and stop container to avoid auto-rejoin and free resources."""
+    try:
+        try:
+            http_request(f'{MEET_STREAMER_URL}/leave', method='POST', timeout=4)
+        except Exception:
+            pass
+
+        cmd = "docker compose -f /opt/school-meet-streamer/docker-compose.yml stop"
+        res = exec_host_command(cmd, timeout=20)
+        return jsonify({
+            'success': True,
+            'output': res.get('output', 'Stopped'),
+            'message': 'Бот залишив зустріч, контейнер зупинено'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/meet/templates', methods=['GET'])
