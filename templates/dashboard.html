@@ -813,12 +813,6 @@ window.fetchLightBot = function() {
                 const statusPill = isOn
                     ? '<span class="status-pill up">🟢 Світло є (ON)</span>'
                     : '<span class="status-pill down">🔴 Відключення (OFF)</span>';
-                
-                const staleWarning = loc.stale
-                    ? `<div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; color: #fbbf24;">
-                        ⚠️ Немає пінгів від роутера: останнє оновлення ${loc.age_display}
-                       </div>`
-                    : '';
 
                 const toggleBtn = isOn
                     ? `<button class="btn btn-danger" style="width: 100%;" onclick="toggleLightStatus('${loc.id}', 'off')">🔴 Вимкнути світло (поставити OFF)</button>`
@@ -831,18 +825,20 @@ window.fetchLightBot = function() {
                             ${statusPill}
                         </div>
 
-                        ${staleWarning}
-
                         <div class="info-list">
                             <div class="info-item">
-                                <span class="info-label">Поточний статус:</span>
+                                <span class="info-label">Поточний стан:</span>
                                 <span class="info-val" style="color: ${isOn ? '#34d399' : '#f87171'}; font-size: 1.05rem;">
                                     ${isOn ? 'СВІТЛО Є' : 'ВІДКЛЮЧЕННЯ'}
                                 </span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Останнє оновлення:</span>
-                                <span class="info-val">${loc.age_display}</span>
+                                <span class="info-label">Активно безперервно:</span>
+                                <span class="info-val" style="color: #60a5fa;">${loc.duration_display || 'Невідомо'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Момент перемикання:</span>
+                                <span class="info-val">${loc.since_display || 'Невідомо'}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Група графіку:</span>

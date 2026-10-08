@@ -388,27 +388,29 @@ def api_light_bot_status():
     now = datetime.now(timezone.utc)
     for loc in locations:
         last_str = loc.get('last_updated', '')
-        # Parse ISO timestamp if embedded: "Last updated: 2026-10-08T14:14:42.930390+03:00"
-        loc['stale'] = False
-        loc['age_seconds'] = None
-        loc['age_display'] = 'Невідомо'
+        # Parse ISO timestamp: Last updated represents the moment the current status began
+        loc['duration_seconds'] = None
+        loc['duration_display'] = 'Невідомо'
+        loc['since_display'] = 'Невідомо'
         try:
             if 'Last updated: ' in last_str:
                 iso_ts = last_str.replace('Last updated: ', '').strip()
                 dt = datetime.fromisoformat(iso_ts)
-                diff = (now - dt).total_seconds()
-                loc['age_seconds'] = int(diff)
-                if diff > 7200: # > 2 hours
-                    loc['stale'] = True
+                diff = max(0, int((now - dt).total_seconds()))
+                loc['duration_seconds'] = diff
+                loc['since_display'] = dt.strftime('%d.%m %H:%M')
                 
-                if diff < 60:
-                    loc['age_display'] = 'Щойно (< 1 хв)'
-                elif diff < 3600:
-                    loc['age_display'] = f'{int(diff // 60)} хв тому'
-                elif diff < 86400:
-                    loc['age_display'] = f'{int(diff // 3600)} год тому'
+                days = diff // 86400
+                hours = (diff % 86400) // 3600
+                minutes = (diff % 3600) // 60
+                if days > 0:
+                    loc['duration_display'] = f'{days}д {hours}г {minutes}хв'
+                elif hours > 0:
+                    loc['duration_display'] = f'{hours}г {minutes}хв'
+                elif minutes > 0:
+                    loc['duration_display'] = f'{minutes} хв'
                 else:
-                    loc['age_display'] = f'{int(diff // 86400)} дн тому'
+                    loc['duration_display'] = '< 1 хв'
         except Exception:
             pass
 
