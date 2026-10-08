@@ -61,7 +61,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-А • ІНФОРМАТИКА (1 ГРУПА)",
         "title": "10-А Клас: Інформатика",
         "schedule": "Код Classroom: n6in3g7l",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+BcfMtOeORc41MTY6",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -72,7 +72,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-А • ІНФОРМАТИКА (2 ГРУПА)",
         "title": "10-А Клас: Інформатика",
         "schedule": "Код Classroom: kp7i44cu",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+kbOf90UrwQo0MTIy",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -83,7 +83,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-Б • ІНФОРМАТИКА (1 ГРУПА)",
         "title": "10-Б Клас: Інформатика",
         "schedule": "Код Classroom: cd2fmnnl",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+sF5P9a9PElNhNDhi",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -94,7 +94,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-Б • ІНФОРМАТИКА (2 ГРУПА)",
         "title": "10-Б Клас: Інформатика",
         "schedule": "Код Classroom: xv77hur4",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+R4A-sch-mwc0ODk6",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -105,7 +105,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-В • ІНФОРМАТИКА (1 ГРУПА)",
         "title": "10-В Клас: Інформатика",
         "schedule": "Код Classroom: f2nxiaeo",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+bHoRBLLMl8lkMWFi",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -116,7 +116,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-В • ІНФОРМАТИКА (2 ГРУПА)",
         "title": "10-В Клас: Інформатика",
         "schedule": "Код Classroom: vs55sgu4",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+1Su96ZyyadYwZmIy",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -127,7 +127,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-Г • ІНФОРМАТИКА (1 ГРУПА)",
         "title": "10-Г Клас: Інформатика",
         "schedule": "Код Classroom: pey2jtvc",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+TdzXtROFXL0wZjky",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -138,7 +138,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-Г • ІНФОРМАТИКА (2 ГРУПА)",
         "title": "10-Г Клас: Інформатика",
         "schedule": "Код Classroom: xr53rjd5",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+xPFR2MMs1tE3M2Uy",
         "qr_caption": "Telegram група",
         "bg_image": ""
@@ -149,7 +149,7 @@ DEFAULT_TEMPLATES = [
         "badge": "10-А • ОІШІ",
         "title": "Основи інженерії ШІ",
         "schedule": "Код Classroom: tlcn33ge",
-        "subtitle": "Урок почнеться незабаром • Приєднуйтесь",
+        "subtitle": "",
         "qr": "https://t.me/+yp8eR3Pc8e9hYTJi",
         "qr_caption": "Telegram група",
         "bg_image": ""
