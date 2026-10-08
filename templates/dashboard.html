@@ -703,10 +703,15 @@
                     <span class="info-label">Мікрофон:</span>
                     <span class="info-val" id="meet-mic">--</span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">Закріплено для всіх:</span>
+                    <span class="info-val" id="meet-pinned">--</span>
+                </div>
             </div>
 
             <div class="action-bar" style="margin-top: 0.5rem; flex-wrap: wrap;">
                 <button class="btn btn-up" onclick="toggleMeetCall()" id="btn-meet-call-toggle">🚀 Увійти у дзвінок</button>
+                <button class="btn btn-logs" onclick="sendMeetPinForEveryone()" id="btn-meet-pin" title="Закріпити відеопотік бота для всіх учасників">📌 Закріпити для всіх</button>
                 <button class="btn btn-logs" onclick="sendMeetCameraToggle()" id="btn-meet-cam">📷 Камера</button>
                 <button class="btn btn-logs" onclick="sendMeetMicToggle()" id="btn-meet-mic">🎤 Мікрофон</button>
             </div>
@@ -1103,6 +1108,7 @@ window.fetchMeet = function() {
             const pill = document.getElementById('meet-status-pill');
             const sw = document.getElementById('meet-call-switch');
             const callBtn = document.getElementById('btn-meet-call-toggle');
+            const pinBtn = document.getElementById('btn-meet-pin');
             const camBtn = document.getElementById('btn-meet-cam');
             const micBtn = document.getElementById('btn-meet-mic');
 
@@ -1122,6 +1128,7 @@ window.fetchMeet = function() {
                     callBtn.innerHTML = '🚪 Вийти з дзвінка';
                     callBtn.disabled = false;
                 }
+                if (pinBtn) pinBtn.disabled = false;
                 if (camBtn) camBtn.disabled = false;
                 if (micBtn) micBtn.disabled = false;
             } else {
@@ -1135,6 +1142,7 @@ window.fetchMeet = function() {
                     callBtn.innerHTML = '🚀 Увійти у дзвінок';
                     callBtn.disabled = false;
                 }
+                if (pinBtn) pinBtn.disabled = true;
                 if (camBtn) camBtn.disabled = true;
                 if (micBtn) micBtn.disabled = true;
             }
@@ -1143,6 +1151,10 @@ window.fetchMeet = function() {
             document.getElementById('meet-participants').textContent = data.participantsCount !== undefined ? `${data.participantsCount} осіб` : '--';
             document.getElementById('meet-camera').innerHTML = data.cameraActive ? '<span style="color: #34d399;">🟢 Увімкнена</span>' : '<span style="color: var(--text-dim);">⚪️ Вимкнена</span>';
             document.getElementById('meet-mic').innerHTML = data.micMuted ? '<span style="color: var(--text-muted);">🔇 Заглушений</span>' : '<span style="color: #34d399;">🎤 Увімкнений</span>';
+            const pinnedEl = document.getElementById('meet-pinned');
+            if (pinnedEl) {
+                pinnedEl.innerHTML = data.isPinnedForAll ? '<span style="color: #34d399;">📌 Так</span>' : '<span style="color: var(--text-dim);">⚪️ Ні</span>';
+            }
         })
         .catch(console.error);
 };
@@ -1297,6 +1309,26 @@ function sendMeetMicToggle() {
                 window.fetchMeet();
             } else {
                 alert(`Помилка: ${JSON.stringify(data.response || data.error)}`);
+            }
+        })
+        .catch(err => {
+            if (btn) btn.disabled = false;
+            alert(`Помилка: ${err.message}`);
+        });
+}
+
+function sendMeetPinForEveryone() {
+    const btn = document.getElementById('btn-meet-pin');
+    if (btn) btn.disabled = true;
+    fetch('/api/meet/pin', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (btn) btn.disabled = false;
+            if (data.success && (data.response?.ok || data.response?.pinned || data.response?.alreadyPinned)) {
+                alert('📌 Відео успішно закріплено для всіх учасників!');
+                window.fetchMeet();
+            } else {
+                alert(`Помилка закріплення: ${JSON.stringify(data.response?.error || data.response || data.error)}`);
             }
         })
         .catch(err => {

@@ -738,6 +738,17 @@ def api_meet_mic_toggle():
     })
 
 
+@app.route('/api/meet/pin', methods=['POST'])
+@login_required
+def api_meet_pin():
+    """Pin bot video for everyone in meeting."""
+    status_code, resp = http_request(f'{MEET_STREAMER_URL}/pin', method='POST', timeout=10)
+    return jsonify({
+        'success': status_code == 200 and isinstance(resp, dict) and resp.get('ok', True),
+        'response': resp
+    })
+
+
 @app.route('/api/meet/join', methods=['POST'])
 @login_required
 def api_meet_join():
