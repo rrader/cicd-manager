@@ -1189,7 +1189,7 @@ function doMeetJoin() {
     const callBtn = document.getElementById('btn-meet-call-toggle');
     if (pill) {
         pill.className = 'status-pill warn';
-        pill.textContent = '⏳ Підключення...';
+        pill.textContent = '⏳ Запуск та вхід...';
     }
     if (sw) {
         sw.checked = true;
@@ -1203,10 +1203,27 @@ function doMeetJoin() {
     fetch('/api/meet/join', { method: 'POST' })
         .then(r => r.json())
         .then(data => {
-            setTimeout(() => {
-                isMeetToggling = false;
-                window.fetchMeet();
-            }, 4000);
+            let attempts = 0;
+            const pollInterval = setInterval(() => {
+                attempts++;
+                if (pill) pill.textContent = `⏳ Підключення (${attempts * 2}с)...`;
+                fetch('/api/meet/status')
+                    .then(r => r.json())
+                    .then(st => {
+                        if (st.inMeeting || attempts >= 12) {
+                            clearInterval(pollInterval);
+                            isMeetToggling = false;
+                            window.fetchMeet();
+                        }
+                    })
+                    .catch(() => {
+                        if (attempts >= 12) {
+                            clearInterval(pollInterval);
+                            isMeetToggling = false;
+                            window.fetchMeet();
+                        }
+                    });
+            }, 2000);
         })
         .catch(err => {
             isMeetToggling = false;
@@ -1236,9 +1253,23 @@ function doMeetLeave() {
     fetch('/api/meet/leave', { method: 'POST' })
         .then(r => r.json())
         .then(data => {
-            setTimeout(() => {
-                isMeetToggling = false;
-                window.fetchMeet();
+            let attempts = 0;
+            const pollInterval = setInterval(() => {
+                attempts++;
+                fetch('/api/meet/status')
+                    .then(r => r.json())
+                    .then(st => {
+                        if (!st.inMeeting || attempts >= 6) {
+                            clearInterval(pollInterval);
+                            isMeetToggling = false;
+                            window.fetchMeet();
+                        }
+                    })
+                    .catch(() => {
+                        clearInterval(pollInterval);
+                        isMeetToggling = false;
+                        window.fetchMeet();
+                    });
             }, 1500);
         })
         .catch(err => {
