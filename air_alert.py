@@ -58,6 +58,10 @@ class AirAlertManager:
         self.lesson_resume_dt = None  # datetime object
         self.resumed_banner_restored = False
 
+        # Meeting presence & announcement tracking
+        self.bot_was_in_meeting = False
+        self.meeting_announced_state = None  # e.g. "alert_10:15_red" or "clear_10:20_10:40"
+
         self.last_checked_at = None
         self.last_api_state = 0
         self.last_error = None
@@ -80,6 +84,45 @@ class AirAlertManager:
                     self.alert_end_time = data.get("alert_end_time")
                     self.alert_duration = data.get("alert_duration")
                     self.lesson_resumes_at = data.get("lesson_resumes_at")
+                    self.resumed_banner_restored = bool(data.get("resumed_banner_restored", False))
+
+                    if data.get("alert_start_dt"):
+                        try:
+                            self.alert_start_dt = datetime.fromisoformat(data["alert_start_dt"])
+                        except Exception:
+                            pass
+                    if data.get("alert_end_dt"):
+                        try:
+                            self.alert_end_dt = datetime.fromisoformat(data["alert_end_dt"])
+                        except Exception:
+                            pass
+                    if data.get("lesson_resume_dt"):
+                        try:
+                            self.lesson_resume_dt = datetime.fromisoformat(data["lesson_resume_dt"])
+                        except Exception:
+                            pass
+
+                    # Reconstruct datetimes if missing
+                    now = get_kyiv_now()
+                    if self.alert_end_time and not self.alert_end_dt:
+                        try:
+                            sp = [int(p) for p in self.alert_end_time.split(":")]
+                            est = now.replace(hour=sp[0], minute=sp[1], second=0, microsecond=0)
+                            if est > now:
+                                est -= timedelta(days=1)
+                            self.alert_end_dt = est
+                        except Exception:
+                            pass
+
+                    if self.lesson_resumes_at and not self.lesson_resume_dt:
+                        try:
+                            sp = [int(p) for p in self.lesson_resumes_at.split(":")]
+                            est = now.replace(hour=sp[0], minute=sp[1], second=0, microsecond=0)
+                            if est < now and (now - est).total_seconds() > 3600 * 12:
+                                est += timedelta(days=1)
+                            self.lesson_resume_dt = est
+                        except Exception:
+                            pass
             except Exception as e:
                 print(f"[AirAlert] Error loading state from {self.state_file}: {e}")
 
@@ -95,9 +138,13 @@ class AirAlertManager:
                 "alert_level": self.alert_level,
                 "alert_causes": self.alert_causes,
                 "alert_start_time": self.alert_start_time,
+                "alert_start_dt": self.alert_start_dt.isoformat() if self.alert_start_dt else None,
                 "alert_end_time": self.alert_end_time,
+                "alert_end_dt": self.alert_end_dt.isoformat() if self.alert_end_dt else None,
                 "alert_duration": self.alert_duration,
                 "lesson_resumes_at": self.lesson_resumes_at,
+                "lesson_resume_dt": self.lesson_resume_dt.isoformat() if self.lesson_resume_dt else None,
+                "resumed_banner_restored": self.resumed_banner_restored,
                 "last_checked_at": self.last_checked_at,
             }
             with open(self.state_file, 'w', encoding='utf-8') as f:
@@ -232,12 +279,87 @@ class AirAlertManager:
         self._apply_stream_banner(alert_level=None)
         return self.get_status()
 
+    def on_meeting_joined(self):
+        """Called when Google Meet streamer enters a call."""
+        threading.Thread(target=self._handle_meeting_joined, daemon=True).start()
+
+    def _handle_meeting_joined(self):
+        """Handle streamer joining Google Meet: announce active alert or recent all-clear."""
+        # Short pause to ensure Meet WebRTC stream and mic state are completely ready
+        time.sleep(2.5)
+
+        with self.lock:
+            # Case 1: Active Alert
+            if self.is_alert:
+                lvl = self.alert_level or "red"
+                start_time = self.alert_start_time or get_kyiv_now().strftime("%H:%M")
+                target_state = f"alert_{start_time}_{lvl}"
+                if self.meeting_announced_state == target_state:
+                    print(f"[AirAlert] Active alert {target_state} already announced in current meeting. Skipping.")
+                    return
+                self.meeting_announced_state = target_state
+                print(f"[AirAlert] Meet bot joined during ACTIVE ALERT ({lvl}, {start_time}). Broadcasting to meeting...")
+                threading.Thread(target=self._broadcast_alert_start, args=(lvl,), daemon=True).start()
+                return
+
+            # Case 2: Recent All-Clear (10-20 min ago / resume delay active)
+            now = get_kyiv_now()
+            mins_since_end = None
+            if self.alert_end_dt:
+                mins_since_end = max(0, (now - self.alert_end_dt).total_seconds() / 60.0)
+
+            is_within_resume = bool(
+                self.lesson_resume_dt and now < self.lesson_resume_dt and not self.resumed_banner_restored
+            )
+            is_recent_clear = bool(
+                mins_since_end is not None and mins_since_end <= 20 and not self.resumed_banner_restored
+            )
+
+            if (is_within_resume or is_recent_clear) and self.alert_end_time and self.lesson_resumes_at:
+                target_state = f"clear_{self.alert_end_time}_{self.lesson_resumes_at}"
+                if self.meeting_announced_state == target_state:
+                    print(f"[AirAlert] Recent clear {target_state} already announced in current meeting. Skipping.")
+                    return
+                self.meeting_announced_state = target_state
+                duration = self.alert_duration or 15
+                delay_min = 10 if duration <= 10 else 20
+                print(f"[AirAlert] Meet bot joined during RECENT ALL-CLEAR (ended {self.alert_end_time}, resume {self.lesson_resumes_at}). Broadcasting to meeting...")
+                threading.Thread(
+                    target=self._broadcast_alert_end,
+                    args=(self.alert_end_time, duration, self.lesson_resumes_at, delay_min),
+                    daemon=True
+                ).start()
+
     def _worker_loop(self):
+        # Immediate initial check on startup
+        if self.monitoring_enabled and not self.manual_override:
+            try:
+                self._check_api()
+            except Exception as e:
+                print(f"[AirAlert] Initial API check error: {e}")
+
         while not self._stop_event.is_set():
             try:
                 now = get_kyiv_now()
 
-                # Check if lesson resumption time reached -> auto restore banner
+                # 1. Track Google Meet presence
+                if self.is_in_meeting_fn:
+                    in_call = False
+                    try:
+                        in_call = bool(self.is_in_meeting_fn())
+                    except Exception:
+                        pass
+
+                    if in_call and not self.bot_was_in_meeting:
+                        print("[AirAlert] Meet streamer joined meeting (detected in polling loop).")
+                        self.bot_was_in_meeting = True
+                        self.on_meeting_joined()
+                    elif not in_call and self.bot_was_in_meeting:
+                        print("[AirAlert] Meet streamer left meeting.")
+                        self.bot_was_in_meeting = False
+                        self.meeting_announced_state = None
+
+                # 2. Check if lesson resumption time reached -> auto restore banner
                 if (
                     not self.is_alert
                     and self.lesson_resume_dt
@@ -252,15 +374,15 @@ class AirAlertManager:
                         self._send_meet_chat("🔔 Урок починається!")
                         self._play_alarm_sound("resume")
 
-                # If automated monitoring is enabled and not manually overridden
+                # 3. Check Kyiv Digital API
                 if self.monitoring_enabled and not self.manual_override:
                     self._check_api()
 
             except Exception as e:
                 print(f"[AirAlert] Worker loop error: {e}")
 
-            # Sleep 10 seconds before next check
-            self._stop_event.wait(10)
+            # Sleep 5 seconds before next check
+            self._stop_event.wait(5)
 
     def _check_api(self):
         now = get_kyiv_now()
@@ -395,6 +517,9 @@ class AirAlertManager:
     def _broadcast_alert_start(self, level, is_manual=False):
         """Send chat alert and update video banner."""
         start_time = self.alert_start_time or get_kyiv_now().strftime("%H:%M")
+        with self.lock:
+            self.meeting_announced_state = f"alert_{start_time}_{level}"
+
         if level == "yellow":
             icon = "🟡"
             threat_name = "дронова небезпека"
@@ -412,6 +537,9 @@ class AirAlertManager:
 
     def _broadcast_alert_end(self, end_time, duration_min, resume_time, delay_min):
         """Send chat all-clear and update video banner with resume time."""
+        with self.lock:
+            self.meeting_announced_state = f"clear_{end_time}_{resume_time}"
+
         chat_msg = (
             f"🟢 Відбій повітряної тривоги в м. Київ. "
             f"Час відбою: {end_time} (тривала {duration_min} хв). "

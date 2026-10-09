@@ -1313,6 +1313,14 @@ def api_meet_alarm_test():
     return jsonify({'success': status_code == 200, 'response': res})
 
 
+@app.route('/api/meet/internal/on-joined', methods=['POST'])
+def api_meet_internal_on_joined():
+    """Internal webhook called by meet-streamer when bot enters Google Meet."""
+    air_alert.on_meeting_joined()
+    return jsonify({'success': True})
+
+
+
 # ==========================================
 # SCHOOL SERVICES APIS (MOODLE, JOBE, ROSTER, IDEA FACTORY)
 # ==========================================
