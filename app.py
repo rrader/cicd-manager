@@ -18,6 +18,7 @@ import urllib.request
 import urllib.error
 import base64
 import time
+import threading
 from datetime import datetime, timezone
 from functools import wraps
 import psutil
@@ -1296,10 +1297,39 @@ def api_meet_air_alert_reset_banner():
 # ==========================================
 
 SCHOOL_CACHE = {
-    'moodle_volume_size': '--',
-    'roster_db_size': '--',
-    'timestamp': 0
+    'moodle_volume_size': '1.2G',
+    'roster_db_size': '31M',
+    'timestamp': 0,
+    'updating': False
 }
+
+def update_school_storage_cache_async():
+    """Update Moodle and Roster disk sizes in background thread."""
+    if SCHOOL_CACHE.get('updating'):
+        return
+
+    def _worker():
+        SCHOOL_CACHE['updating'] = True
+        try:
+            cmd = 'sh -c "docker exec services-moodle-1 du -sh /bitnami/moodledata 2>/dev/null; ls -lh /root/services/roster/data/db.sqlite3 2>/dev/null"'
+            res = exec_host_command(cmd, timeout=30)
+            if res.get('success'):
+                lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
+                if len(lines) >= 1:
+                    SCHOOL_CACHE['moodle_volume_size'] = lines[0].split()[0]
+                if len(lines) >= 2:
+                    p = lines[1].split()
+                    if len(p) >= 5:
+                        SCHOOL_CACHE['roster_db_size'] = p[4]
+                SCHOOL_CACHE['timestamp'] = time.time()
+        except Exception as e:
+            print(f"Error checking school storage sizes: {e}")
+        finally:
+            SCHOOL_CACHE['updating'] = False
+
+    t = threading.Thread(target=_worker, name="SchoolStorageWorker", daemon=True)
+    t.start()
+
 
 @app.route('/api/school/status')
 @login_required
@@ -1360,23 +1390,9 @@ def api_school_status():
     except Exception as e:
         print(f"Error querying Moodle stats: {e}")
 
-    # Query storage sizes (Moodle volume & Roster DB) with 3-minute caching
-    now = time.time()
-    if now - SCHOOL_CACHE['timestamp'] > 180:
-        try:
-            cmd = 'sh -c "docker exec services-moodle-1 du -sh /bitnami/moodledata 2>/dev/null; ls -lh /root/services/roster/data/db.sqlite3 2>/dev/null"'
-            res = exec_host_command(cmd, timeout=8)
-            if res.get('success'):
-                lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
-                if len(lines) >= 1:
-                    SCHOOL_CACHE['moodle_volume_size'] = lines[0].split()[0]
-                if len(lines) >= 2:
-                    p = lines[1].split()
-                    if len(p) >= 5:
-                        SCHOOL_CACHE['roster_db_size'] = p[4]
-                SCHOOL_CACHE['timestamp'] = now
-        except Exception as e:
-            print(f"Error checking school storage sizes: {e}")
+    # Refresh storage sizes in background if older than 5 minutes
+    if time.time() - SCHOOL_CACHE['timestamp'] > 300:
+        update_school_storage_cache_async()
 
     return jsonify({
         'success': True,
