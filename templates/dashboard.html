@@ -1224,17 +1224,41 @@
         <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: 600; margin-left: 0.3rem;">OpenAI Billing Overview ↗</a>
     </div>
 
-    <!-- Daily Spend Plot Card -->
+    <!-- Daily Spend Plot Card with Filters -->
     <div class="bot-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.6rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
             <div>
                 <h3 style="margin: 0; font-size: 1.05rem; color: #fff;">📈 Графік витрат по днях ($ USD)</h3>
                 <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem;" id="ai-chart-subtitle">Показ витрат за обраний період</div>
             </div>
-            <div style="display: flex; gap: 0.4rem;">
-                <button class="btn btn-sm" id="ai-btn-chart-7d" onclick="setAITabChartRange(7)" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">7 днів</button>
-                <button class="btn btn-sm" id="ai-btn-chart-14d" onclick="setAITabChartRange(14)" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">14 днів</button>
-                <button class="btn btn-sm" id="ai-btn-chart-30d" onclick="setAITabChartRange(30)" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; border-radius: 6px; background: #6366f1; color: #fff; border: none; cursor: pointer; font-weight: 600;">30 днів</button>
+
+            <!-- Filters Bar -->
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                <!-- Filter by API Key / Project -->
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <label style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">🔑 Ключ:</label>
+                    <select id="ai-filter-key" onchange="onAIFilterChange()" style="background: #0f172a; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.32rem 0.6rem; border-radius: 6px; font-size: 0.8rem; min-width: 170px; max-width: 250px;">
+                        <option value="all">🌐 Всі ключі організації</option>
+                    </select>
+                </div>
+
+                <!-- Filter by Model -->
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <label style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">🧠 Модель:</label>
+                    <select id="ai-filter-model" onchange="onAIFilterChange()" style="background: #0f172a; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.32rem 0.6rem; border-radius: 6px; font-size: 0.8rem; min-width: 130px; max-width: 180px;">
+                        <option value="all">⚡ Всі моделі</option>
+                    </select>
+                </div>
+
+                <!-- Range Buttons -->
+                <div style="display: flex; gap: 0.25rem;">
+                    <button class="btn btn-sm" id="ai-btn-chart-7d" onclick="setAITabChartRange(7)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">7д</button>
+                    <button class="btn btn-sm" id="ai-btn-chart-14d" onclick="setAITabChartRange(14)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">14д</button>
+                    <button class="btn btn-sm" id="ai-btn-chart-30d" onclick="setAITabChartRange(30)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #6366f1; color: #fff; border: none; cursor: pointer; font-weight: 600;">30д</button>
+                </div>
+
+                <!-- Reset Filter Button -->
+                <button class="btn btn-sm" id="ai-btn-reset-filter" onclick="resetAIFilters()" title="Скинути фільтри до початкового стану" style="display: none; padding: 0.32rem 0.55rem; font-size: 0.78rem; border-radius: 6px; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); cursor: pointer;">✖️ Скинути</button>
             </div>
         </div>
 
@@ -2448,7 +2472,10 @@ window.fetchVaultwarden = function() {
 };
 
 // 10. AI & EXTERNAL SERVICES BILLING TAB
+// 10. AI & EXTERNAL SERVICES BILLING TAB
 let currentAITabChartRange = 30;
+let currentAIKeyFilter = 'all';
+let currentAIModelFilter = 'all';
 let cachedAIBillingData = null;
 
 window.openOpenAICostsModal = function() {
@@ -2464,8 +2491,38 @@ window.setAITabChartRange = function(days) {
             btn.style.fontWeight = (id === `${days}d`) ? '600' : 'normal';
         }
     });
-    if (cachedAIBillingData) {
-        renderAITabChart(cachedAIBillingData);
+    applyAIFiltersAndRender();
+};
+
+window.onAIFilterChange = function() {
+    const kSel = document.getElementById('ai-filter-key');
+    const mSel = document.getElementById('ai-filter-model');
+    if (kSel) currentAIKeyFilter = kSel.value;
+    if (mSel) currentAIModelFilter = mSel.value;
+    applyAIFiltersAndRender();
+};
+
+window.resetAIFilters = function() {
+    currentAIKeyFilter = 'all';
+    currentAIModelFilter = 'all';
+    const kSel = document.getElementById('ai-filter-key');
+    const mSel = document.getElementById('ai-filter-model');
+    if (kSel) kSel.value = 'all';
+    if (mSel) mSel.value = 'all';
+    applyAIFiltersAndRender();
+};
+
+window.filterByAIServiceKey = function(keyMasked) {
+    if (!cachedAIBillingData || !cachedAIBillingData.keys_list) return;
+    const cleanSuffix = (keyMasked || '').slice(-4);
+    const matched = cachedAIBillingData.keys_list.find(k => k.suffix === cleanSuffix || k.masked.endsWith(cleanSuffix));
+    if (matched) {
+        currentAIKeyFilter = matched.id;
+        const kSel = document.getElementById('ai-filter-key');
+        if (kSel) kSel.value = matched.id;
+        applyAIFiltersAndRender();
+        const chartCard = document.getElementById('ai-tab-chart-container');
+        if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 };
 
@@ -2516,35 +2573,50 @@ window.fetchAIBilling = function(force = false) {
                 }
             }
 
-            // Summary metrics
+            // Summary metrics header cards
             const pEl = document.getElementById('ai-tab-project');
             const kEl = document.getElementById('ai-tab-keyname');
-            const mEl = document.getElementById('ai-tab-month');
             const orgEl = document.getElementById('ai-tab-org-cost');
-            const wEl = document.getElementById('ai-tab-7d');
-            const m30El = document.getElementById('ai-tab-30d');
 
             if (pEl) pEl.textContent = data.project_name ? `[${data.project_name}]` : (data.org || 'OpenAI');
             if (kEl) kEl.textContent = `Ключ: ${data.key_name ? data.key_name + ' · ' : ''}${data.key_masked || ''}`;
 
-            const costVal = (data.project_cost_usd !== null && data.project_cost_usd !== undefined) ? data.project_cost_usd : (data.cost_usd || 0);
-            const costStr = costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`;
-            if (mEl) mEl.textContent = costStr;
-
-            const orgCost = data.org_cost_usd !== null && data.org_cost_usd !== undefined ? data.org_cost_usd : costVal;
+            const orgCost = data.org_cost_usd !== null && data.org_cost_usd !== undefined ? data.org_cost_usd : (data.cost_usd || 0);
             const orgCostStr = orgCost < 0.01 && orgCost > 0 ? `$${orgCost}` : `$${Number(orgCost).toFixed(2)}`;
             if (orgEl) orgEl.textContent = `Орг (${data.org || 'OpenAI'}): ${orgCostStr}`;
 
-            const spent7 = data.spent_7d || 0;
-            const spent7Str = spent7 < 0.01 && spent7 > 0 ? `$${spent7}` : `$${Number(spent7).toFixed(2)}`;
-            if (wEl) wEl.textContent = spent7Str;
+            // Populate Key Filter Select
+            const kSel = document.getElementById('ai-filter-key');
+            if (kSel && data.keys_list) {
+                const prevVal = currentAIKeyFilter;
+                let optHtml = '<option value="all">🌐 Всі ключі організації</option>';
+                data.keys_list.forEach(k => {
+                    const usageIcon = k.has_usage ? ' ⚡' : '';
+                    optHtml += `<option value="${k.id}">[${k.project_name}] ${k.name} (${k.suffix})${usageIcon}</option>`;
+                });
+                kSel.innerHTML = optHtml;
+                if (prevVal && Array.from(kSel.options).some(o => o.value === prevVal)) {
+                    kSel.value = prevVal;
+                } else {
+                    currentAIKeyFilter = 'all';
+                }
+            }
 
-            const spent30 = data.spent_30d || 0;
-            const spent30Str = spent30 < 0.01 && spent30 > 0 ? `$${spent30}` : `$${Number(spent30).toFixed(2)}`;
-            if (m30El) m30El.textContent = spent30Str;
-
-            // Render Chart
-            renderAITabChart(data);
+            // Populate Model Filter Select
+            const mSel = document.getElementById('ai-filter-model');
+            if (mSel && data.models_list) {
+                const prevVal = currentAIModelFilter;
+                let optHtml = '<option value="all">⚡ Всі моделі</option>';
+                data.models_list.forEach(m => {
+                    optHtml += `<option value="${m}">${m}</option>`;
+                });
+                mSel.innerHTML = optHtml;
+                if (prevVal && Array.from(mSel.options).some(o => o.value === prevVal)) {
+                    mSel.value = prevVal;
+                } else {
+                    currentAIModelFilter = 'all';
+                }
+            }
 
             // Render Services Breakdown Table
             const tbody = document.getElementById('ai-services-table-body');
@@ -2578,8 +2650,9 @@ window.fetchAIBilling = function(force = false) {
                                 ${statusBadge}
                                 ${sharedNote}
                             </td>
-                            <td style="padding: 0.75rem 0.8rem; text-align: right;">
-                                <button class="btn btn-sm btn-logs" onclick="switchTab('${s.tab || 'metrics'}')">Перейти ↗</button>
+                            <td style="padding: 0.75rem 0.8rem; text-align: right; white-space: nowrap;">
+                                <button class="btn btn-sm btn-logs" onclick="filterByAIServiceKey('${s.key_masked}')" title="Фільтрувати графік за ключем цього сервісу">📊 Графік</button>
+                                <button class="btn btn-sm btn-logs" style="margin-left: 0.3rem;" onclick="switchTab('${s.tab || 'metrics'}')">Перейти ↗</button>
                             </td>
                         </tr>
                         `;
@@ -2588,26 +2661,110 @@ window.fetchAIBilling = function(force = false) {
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">Сервісів із ключами OpenAI не знайдено</td></tr>';
                 }
             }
+
+            // Apply filters and render chart
+            applyAIFiltersAndRender();
         })
         .catch(console.error);
 };
 
-function renderAITabChart(data) {
+function applyAIFiltersAndRender() {
+    if (!cachedAIBillingData) return;
+    const data = cachedAIBillingData;
+
+    // Reset button visibility
+    const resetBtn = document.getElementById('ai-btn-reset-filter');
+    const hasFilter = (currentAIKeyFilter !== 'all' || currentAIModelFilter !== 'all');
+    if (resetBtn) resetBtn.style.display = hasFilter ? 'inline-block' : 'none';
+
+    // Calculate filtered daily list
+    const breakdown = data.daily_breakdown || [];
+    let filteredDays = [];
+
+    if (breakdown.length > 0) {
+        filteredDays = breakdown.map(day => {
+            const date = day.date;
+            let dayCost = 0.0;
+            let dayTokens = 0;
+            const modelsSeen = new Set();
+
+            (day.entries || []).forEach(e => {
+                if (currentAIKeyFilter !== 'all' && e.key_id !== currentAIKeyFilter) {
+                    return;
+                }
+                if (currentAIModelFilter !== 'all' && e.model !== currentAIModelFilter && e.raw_model !== currentAIModelFilter) {
+                    return;
+                }
+                dayCost += (e.cost || 0.0);
+                dayTokens += (e.tokens || 0);
+                if (e.model) modelsSeen.add(e.model);
+            });
+
+            return {
+                date: date,
+                cost: Math.round(dayCost * 1000000) / 1000000,
+                tokens: dayTokens,
+                models: Array.from(modelsSeen)
+            };
+        });
+    } else {
+        filteredDays = (data.daily_costs || []).map(d => ({ date: d.date, cost: d.cost || 0, models: [], tokens: 0 }));
+    }
+
+    // Update Summary metric cards
+    const now = new Date();
+    const curYearMonth = now.toISOString().slice(0, 7) + '-01'; // YYYY-MM-01
+
+    const mEl = document.getElementById('ai-tab-month');
+    const wEl = document.getElementById('ai-tab-7d');
+    const m30El = document.getElementById('ai-tab-30d');
+
+    const total30d = filteredDays.reduce((acc, d) => acc + (d.cost || 0), 0);
+    const total7d = filteredDays.slice(-7).reduce((acc, d) => acc + (d.cost || 0), 0);
+    const totalMonth = filteredDays.filter(d => d.date >= curYearMonth).reduce((acc, d) => acc + (d.cost || 0), 0);
+
+    const formatCost = (val) => val < 0.01 && val > 0 ? `$${Math.round(val * 10000)/10000}` : `$${Number(val).toFixed(2)}`;
+
+    if (hasFilter) {
+        if (mEl) mEl.innerHTML = `${formatCost(totalMonth)} <span style="font-size: 0.72rem; color: #a78bfa; font-weight: normal;">(фільтр)</span>`;
+        if (wEl) wEl.innerHTML = `${formatCost(total7d)} <span style="font-size: 0.72rem; color: #a78bfa; font-weight: normal;">(фільтр)</span>`;
+        if (m30El) m30El.innerHTML = `${formatCost(total30d)} <span style="font-size: 0.72rem; color: #a78bfa; font-weight: normal;">(фільтр)</span>`;
+    } else {
+        const costVal = (data.project_cost_usd !== null && data.project_cost_usd !== undefined) ? data.project_cost_usd : (data.cost_usd || 0);
+        if (mEl) mEl.textContent = formatCost(costVal);
+        if (wEl) wEl.textContent = formatCost(data.spent_7d || 0);
+        if (m30El) m30El.textContent = formatCost(data.spent_30d || 0);
+    }
+
+    // Render SVG bar chart
+    renderAITabChartFiltered(filteredDays, data, hasFilter);
+}
+
+function renderAITabChartFiltered(filteredDays, data, hasFilter) {
     const container = document.getElementById('ai-tab-chart-container');
     const subTitle = document.getElementById('ai-chart-subtitle');
     if (!container) return;
 
-    const allDays = data.daily_costs || [];
-    if (!allDays.length) {
-        container.innerHTML = '<span style="color: var(--text-dim); padding: 2rem 0;">Дані щоденних витрат відсутні або ще не накопичилися</span>';
+    if (!filteredDays.length) {
+        container.innerHTML = '<span style="color: var(--text-dim); padding: 2rem 0;">Дані щоденних витрат відсутні</span>';
         return;
     }
 
-    const sliceDays = allDays.slice(-currentAITabChartRange);
+    const sliceDays = filteredDays.slice(-currentAITabChartRange);
     const totalInRange = sliceDays.reduce((acc, d) => acc + (d.cost || 0), 0);
     const totalFormatted = totalInRange < 0.01 && totalInRange > 0 ? `$${Math.round(totalInRange * 10000)/10000}` : `$${totalInRange.toFixed(2)}`;
+
+    // Labels for active filters
+    let keyLabel = 'Всі ключі';
+    if (currentAIKeyFilter !== 'all') {
+        const found = (data.keys_list || []).find(k => k.id === currentAIKeyFilter);
+        keyLabel = found ? `[${found.project_name}] ${found.name}` : currentAIKeyFilter;
+    }
+    let modelLabel = (currentAIModelFilter === 'all') ? 'Всі моделі' : currentAIModelFilter;
+
     if (subTitle) {
-        subTitle.textContent = `Сумарно за останні ${currentAITabChartRange} дн: ${totalFormatted} (проєкт: ${data.project_name || 'All'})`;
+        const filterBadge = hasFilter ? ` · <span style="color: #a78bfa;">🎯 Фільтр: [${keyLabel}] · [${modelLabel}]</span>` : '';
+        subTitle.innerHTML = `Сумарно за останні ${currentAITabChartRange} дн: <strong style="color: #38bdf8;">${totalFormatted}</strong>${filterBadge}`;
     }
 
     const maxVal = Math.max(...sliceDays.map(d => d.cost || 0), 0.001);
@@ -2642,15 +2799,19 @@ function renderAITabChart(data) {
         const h = val > 0 ? Math.max(3, (val / maxVal) * plotHeight) : 2;
         const x = paddingLeft + gap + idx * (barWidth + gap);
         const y = paddingTop + plotHeight - h;
-        const fill = val > 0 ? '#38bdf8' : 'rgba(148, 163, 184, 0.2)';
+        const fill = val > 0 
+            ? (hasFilter ? '#a855f7' : '#38bdf8') 
+            : 'rgba(148, 163, 184, 0.2)';
         const dateStr = item.date || '';
         const shortDate = dateStr.slice(5); // MM-DD
         const costStr = val < 0.01 && val > 0 ? `$${Math.round(val * 10000)/10000}` : `$${val.toFixed(4)}`;
+        const modelsStr = item.models && item.models.length ? ` · ${item.models.join(', ')}` : '';
+        const tokensStr = item.tokens ? ` · ${Math.round(item.tokens)} tokens` : '';
 
         svg += `
         <g class="chart-bar-group" style="cursor: pointer;">
             <rect x="${x}" y="${y}" width="${barWidth}" height="${h}" rx="2" fill="${fill}" opacity="0.9">
-                <title>${dateStr}: ${costStr}</title>
+                <title>${dateStr}: ${costStr}${modelsStr}${tokensStr}</title>
             </rect>`;
 
         const showLabel = (currentAITabChartRange <= 7) ||

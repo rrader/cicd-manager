@@ -994,6 +994,10 @@ def get_openai_billing(force_refresh=False):
         'spent_7d': None,
         'spent_30d': None,
         'daily_costs': [],
+        'daily_breakdown': [],
+        'keys_list': [],
+        'models_list': [],
+        'target_key_id': None,
         'project_name': None,
         'project_id': None,
         'key_name': None,
@@ -1024,6 +1028,8 @@ def get_openai_billing(force_refresh=False):
     target_project_id = None
     target_project_name = None
     target_key_name = None
+    target_key_id = None
+    keys_map = {}
 
     if admin_key:
         try:
@@ -1040,67 +1046,138 @@ def get_openai_billing(force_refresh=False):
                     with urllib.request.urlopen(k_req, timeout=4) as kr:
                         keys_data = json.loads(kr.read())
                         for k in keys_data.get('data', []):
+                            kid = k.get('id')
+                            kname = k.get('name') or 'Unnamed'
                             redacted = k.get('redacted_value', '')
-                            if redacted.endswith(key_suffix):
+                            ksuff = redacted[-4:] if len(redacted) >= 4 else ''
+                            keys_map[kid] = {
+                                'id': kid,
+                                'name': kname,
+                                'suffix': ksuff,
+                                'masked': f"...{ksuff}",
+                                'project_id': pid,
+                                'project_name': pname,
+                                'label': f"[{pname}] {kname} (...{ksuff})"
+                            }
+                            if key_suffix and ksuff == key_suffix:
                                 target_project_id = pid
                                 target_project_name = pname
-                                target_key_name = k.get('name')
-                                break
+                                target_key_name = kname
+                                target_key_id = kid
                 except Exception:
                     pass
-                if target_project_id:
-                    break
         except Exception:
             pass
 
         billing_data['project_id'] = target_project_id
         billing_data['project_name'] = target_project_name
         billing_data['key_name'] = target_key_name
+        billing_data['target_key_id'] = target_key_id
 
-        # Query daily costs for last 30 days & calculate 7d / 30d / month spend
+        # Query daily costs for last 30 days grouped by project, key and line_item
         try:
             now_dt = datetime.now(timezone.utc)
             start_30d = int((now_dt - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
             start_month_str = now_dt.strftime('%Y-%m-01')
 
-            # Fetch daily buckets (1d) for last 30 days
-            url_costs = f'https://api.openai.com/v1/organization/costs?start_time={start_30d}&bucket_width=1d&limit=100'
-            if target_project_id:
-                url_costs += f'&project_ids={target_project_id}'
+            # Fetch daily buckets (1d) for last 30 days with full breakdown across entire organization
+            url_costs = f'https://api.openai.com/v1/organization/costs?start_time={start_30d}&bucket_width=1d&limit=100&group_by=project_id&group_by=api_key_id&group_by=line_item'
 
             req = urllib.request.Request(url_costs, headers=headers)
             with urllib.request.urlopen(req, timeout=6) as r:
                 c_data = json.loads(r.read())
+                all_models = set()
+                used_keys = set()
+                daily_breakdown = []
                 daily_list = []
+
                 for b in c_data.get('data', []):
                     iso = b.get('end_time_iso') or ''
-                    d = iso.split('T')[0] if 'T' in iso else str(iso)
-                    val = sum(res.get('amount', {}).get('value', 0.0) for res in b.get('results', []))
-                    daily_list.append({'date': d, 'cost': round(val, 6)})
+                    d_str = iso.split('T')[0] if 'T' in iso else str(iso)
+                    entries = []
+                    bucket_total = 0.0
 
+                    for res in b.get('results', []):
+                        val = res.get('amount', {}).get('value', 0.0)
+                        if val <= 0 and not res.get('quantity'):
+                            continue
+                        kid = res.get('api_key_id')
+                        pid = res.get('project_id')
+                        pname = res.get('project_name')
+                        li = res.get('line_item') or ''
+
+                        # Clean model name (e.g. "gpt-4o-mini-2024-07-18, input" -> "gpt-4o-mini")
+                        raw_model = li.split(',')[0].strip() if li else 'other'
+                        model_name = raw_model
+                        if 'gpt-4o-mini' in raw_model:
+                            model_name = 'gpt-4o-mini'
+                        elif 'gpt-4o' in raw_model:
+                            model_name = 'gpt-4o'
+
+                        if kid:
+                            used_keys.add(kid)
+                        if model_name:
+                            all_models.add(model_name)
+
+                        bucket_total += val
+                        entries.append({
+                            'key_id': kid,
+                            'project_id': pid,
+                            'project_name': pname,
+                            'model': model_name,
+                            'raw_model': raw_model,
+                            'line_item': li,
+                            'cost': round(val, 6),
+                            'tokens': res.get('quantity', 0)
+                        })
+
+                    daily_breakdown.append({
+                        'date': d_str,
+                        'total_cost': round(bucket_total, 6),
+                        'entries': entries
+                    })
+                    daily_list.append({'date': d_str, 'cost': round(bucket_total, 6)})
+
+                billing_data['daily_breakdown'] = daily_breakdown
                 billing_data['daily_costs'] = daily_list
-                billing_data['spent_30d'] = round(sum(d['cost'] for d in daily_list), 4)
-                billing_data['spent_7d'] = round(sum(d['cost'] for d in daily_list[-7:]), 4)
+                billing_data['spent_30d'] = round(sum(d['total_cost'] for d in daily_breakdown), 4)
+                billing_data['spent_7d'] = round(sum(d['total_cost'] for d in daily_breakdown[-7:]), 4)
 
-                month_costs = [d['cost'] for d in daily_list if d['date'] >= start_month_str]
+                month_costs = [d['total_cost'] for d in daily_breakdown if d['date'] >= start_month_str]
                 cost_m = round(sum(month_costs), 4)
                 billing_data['cost_usd'] = cost_m
-                billing_data['project_cost_usd'] = cost_m
+                billing_data['org_cost_usd'] = cost_m
+
+                # Project/key specific month cost
+                if target_key_id or target_project_id:
+                    pk_month_costs = [
+                        sum(e['cost'] for e in d['entries'] if (target_key_id and e.get('key_id') == target_key_id) or (target_project_id and e.get('project_id') == target_project_id))
+                        for d in daily_breakdown if d['date'] >= start_month_str
+                    ]
+                    billing_data['project_cost_usd'] = round(sum(pk_month_costs), 4)
+                else:
+                    billing_data['project_cost_usd'] = cost_m
+
                 billing_data['has_balance'] = True
 
-            # Query total org cost for month if project filter was applied
-            if target_project_id:
-                start_month_ts = int(now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
-                org_req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_month_ts}', headers=headers)
-                with urllib.request.urlopen(org_req, timeout=4) as r:
-                    org_data = json.loads(r.read())
-                    tot_org = sum(
-                        sum(res.get('amount', {}).get('value', 0.0) for res in b.get('results', []))
-                        for b in org_data.get('data', [])
-                    )
-                    billing_data['org_cost_usd'] = round(tot_org, 4)
-            else:
-                billing_data['org_cost_usd'] = billing_data['cost_usd']
+                # Format keys_list & models_list
+                keys_list = [
+                    {
+                        'id': k['id'],
+                        'name': k['name'],
+                        'project_id': k['project_id'],
+                        'project_name': k['project_name'],
+                        'suffix': k['suffix'],
+                        'masked': k['masked'],
+                        'label': k['label'],
+                        'has_usage': k['id'] in used_keys
+                    }
+                    for k in keys_map.values()
+                ]
+                keys_list.sort(key=lambda x: (not x['has_usage'], x['project_name'], x['name']))
+                billing_data['keys_list'] = keys_list
+                billing_data['models_list'] = sorted(list(all_models))
+
         except Exception as e:
             billing_data['info'] = str(e)
     else:
