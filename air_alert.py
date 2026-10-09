@@ -60,6 +60,7 @@ class AirAlertManager:
 
         # Meeting presence & announcement tracking
         self.bot_was_in_meeting = False
+        self.consecutive_out_of_call = 0
         self.meeting_announced_state = None  # e.g. "alert_10:15_red" or "clear_10:20_10:40"
 
         self.last_checked_at = None
@@ -344,20 +345,26 @@ class AirAlertManager:
 
                 # 1. Track Google Meet presence
                 if self.is_in_meeting_fn:
-                    in_call = False
+                    in_call = None
                     try:
-                        in_call = bool(self.is_in_meeting_fn())
+                        in_call = self.is_in_meeting_fn()
                     except Exception:
                         pass
 
-                    if in_call and not self.bot_was_in_meeting:
-                        print("[AirAlert] Meet streamer joined meeting (detected in polling loop).")
-                        self.bot_was_in_meeting = True
-                        self.on_meeting_joined()
-                    elif not in_call and self.bot_was_in_meeting:
-                        print("[AirAlert] Meet streamer left meeting.")
-                        self.bot_was_in_meeting = False
-                        self.meeting_announced_state = None
+                    if in_call is True:
+                        self.consecutive_out_of_call = 0
+                        if not self.bot_was_in_meeting:
+                            print("[AirAlert] Meet streamer joined meeting (detected in polling loop).", flush=True)
+                            self.bot_was_in_meeting = True
+                            self.on_meeting_joined()
+                    elif in_call is False:
+                        self.consecutive_out_of_call += 1
+                        # Require at least 3 consecutive confirmed negative checks (>=15s) to avoid false resets
+                        if self.consecutive_out_of_call >= 3 and self.bot_was_in_meeting:
+                            print("[AirAlert] Meet streamer confirmed left meeting.", flush=True)
+                            self.bot_was_in_meeting = False
+                            self.meeting_announced_state = None
+                    # in_call is None means timeout/busy: retain current presence state unchanged
 
                 # 2. Check if lesson resumption time reached -> auto restore banner
                 if (

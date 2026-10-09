@@ -509,9 +509,12 @@ def send_meet_chat_internal(text):
 
 
 def is_meet_in_call():
-    """Check if meet-streamer is currently in a call."""
-    status_code, data = http_request(f'{MEET_STREAMER_URL}/status', timeout=3)
-    return bool(status_code == 200 and isinstance(data, dict) and data.get('inMeeting'))
+    """Check if meet-streamer is currently in a call. Returns True, False, or None if unreachable."""
+    status_code, data = http_request(f'{MEET_STREAMER_URL}/status', timeout=6)
+    if status_code == 200 and isinstance(data, dict):
+        return bool(data.get('inMeeting'))
+    return None
+
 
 
 def play_meet_alarm(sound_type):
