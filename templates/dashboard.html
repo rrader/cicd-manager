@@ -1172,8 +1172,9 @@
             <h2>🤖 AI & Зовнішні сервіси (OpenAI)</h2>
             <p>Моніторинг витрат, лімітів токенів та прив'язки проєктів OpenAI до сервісів хомлабу</p>
         </div>
-        <div class="action-bar">
-            <button class="btn btn-logs" onclick="fetchAIBilling()">🔄 Оновити</button>
+        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
+            <span id="ai-cache-indicator" style="font-size: 0.8rem; color: var(--text-dim);">⏱️ Кеш: завантаження...</span>
+            <button class="btn btn-logs" onclick="fetchAIBilling(true)" title="Примусово оновити дані з API OpenAI в обхід кешу">🔄 Оновити</button>
             <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" class="btn btn-up" style="text-decoration: none;">💳 OpenAI Billing ↗</a>
         </div>
     </div>
@@ -2466,12 +2467,33 @@ window.setAITabChartRange = function(days) {
     }
 };
 
-window.fetchAIBilling = function() {
-    fetch('/api/ai/billing')
+window.fetchAIBilling = function(force = false) {
+    const url = force ? '/api/ai/billing?force=true' : '/api/ai/billing';
+    const indicator = document.getElementById('ai-cache-indicator');
+    if (force && indicator) {
+        indicator.innerHTML = '🔄 <span style="color: #60a5fa;">Оновлення...</span>';
+    }
+    fetch(url)
         .then(r => r.json())
         .then(data => {
-            if (!data.success) return;
+            if (!data.success) {
+                if (indicator) indicator.innerHTML = '<span style="color: #f87171;">⚠️ Помилка</span>';
+                return;
+            }
             cachedAIBillingData = data;
+
+            // Cache age indicator
+            if (indicator) {
+                const age = (data.cache_age_seconds !== undefined) ? Math.round(data.cache_age_seconds) : 0;
+                const ttl = data.cache_ttl_seconds || 600;
+                let ageStr = 'щойно';
+                if (age >= 60) {
+                    ageStr = `${Math.floor(age / 60)} хв тому`;
+                } else if (age > 0) {
+                    ageStr = `${age} с тому`;
+                }
+                indicator.innerHTML = `<span title="Дані кешуються на 10 хвилин для захисту від перевантаження API OpenAI">⏱️ Кеш: <strong style="color: #e2e8f0;">${ageStr}</strong> <span style="opacity: 0.65;">(TTL ${Math.round(ttl/60)}хв)</span></span>`;
+            }
 
             // Nav badge
             const navBadge = document.getElementById('ai-nav-badge');

@@ -890,14 +890,65 @@ def get_ai_services_usage():
     }
 
 
-def get_openai_billing():
-    """Retrieve OpenAI API key info, project name, credit balance, or month cost."""
-    now = time.time()
-    if OPENAI_BILLING_CACHE['data'] and (now - OPENAI_BILLING_CACHE['timestamp'] < 300):
-        return OPENAI_BILLING_CACHE['data']
+OPENAI_BILLING_LOCK = threading.Lock()
+OPENAI_CACHE_FILE = os.path.join(SERVICES_DIR, 'cicd-manager', 'tmp', 'openai_billing_cache.json') if os.path.exists(SERVICES_DIR) else '/app/openai_billing_cache.json'
+OPENAI_CACHE_TTL = 600  # 10 minutes cache TTL to prevent API rate limits and overuse
 
-    admin_key = os.environ.get('OPENAI_ADMIN_KEY')
-    api_key = os.environ.get('OPENAI_API_KEY')
+OPENAI_BILLING_CACHE = {
+    'timestamp': 0,
+    'data': None
+}
+
+def load_openai_cache_from_disk():
+    """Load cached billing data from disk on startup if present."""
+    try:
+        if os.path.exists(OPENAI_CACHE_FILE):
+            with open(OPENAI_CACHE_FILE, 'r', encoding='utf-8') as f:
+                saved = json.load(f)
+                if isinstance(saved, dict) and 'timestamp' in saved and 'data' in saved:
+                    OPENAI_BILLING_CACHE['timestamp'] = saved['timestamp']
+                    OPENAI_BILLING_CACHE['data'] = saved['data']
+    except Exception as e:
+        print(f"Error loading OpenAI billing cache: {e}")
+
+load_openai_cache_from_disk()
+
+def save_openai_cache_to_disk(timestamp, data):
+    """Atomically save cached billing data to disk."""
+    try:
+        os.makedirs(os.path.dirname(OPENAI_CACHE_FILE), exist_ok=True)
+        tmp_file = OPENAI_CACHE_FILE + '.tmp'
+        with open(tmp_file, 'w', encoding='utf-8') as f:
+            json.dump({'timestamp': timestamp, 'data': data}, f)
+        os.replace(tmp_file, OPENAI_CACHE_FILE)
+    except Exception as e:
+        print(f"Error saving OpenAI billing cache: {e}")
+
+
+def get_openai_billing(force_refresh=False):
+    """Retrieve OpenAI API key info, project name, credit balance, or month cost with thread-safe caching."""
+    now = time.time()
+    if not force_refresh and OPENAI_BILLING_CACHE['data']:
+        age = now - OPENAI_BILLING_CACHE['timestamp']
+        if age < OPENAI_CACHE_TTL:
+            res = dict(OPENAI_BILLING_CACHE['data'])
+            res['cached'] = True
+            res['cache_age_seconds'] = int(age)
+            res['cache_ttl_seconds'] = OPENAI_CACHE_TTL
+            return res
+
+    with OPENAI_BILLING_LOCK:
+        now = time.time()
+        age = now - OPENAI_BILLING_CACHE['timestamp']
+        if not force_refresh and OPENAI_BILLING_CACHE['data'] and age < OPENAI_CACHE_TTL:
+            res = dict(OPENAI_BILLING_CACHE['data'])
+            res['cached'] = True
+            res['cache_age_seconds'] = int(age)
+            res['cache_ttl_seconds'] = OPENAI_CACHE_TTL
+            return res
+
+        admin_key = os.environ.get('OPENAI_ADMIN_KEY')
+        api_key = os.environ.get('OPENAI_API_KEY')
 
     candidate_paths = [
         os.path.join(SERVICES_DIR, 'cicd-manager', '.env'),
@@ -1062,7 +1113,14 @@ def get_openai_billing():
 
     OPENAI_BILLING_CACHE['timestamp'] = now
     OPENAI_BILLING_CACHE['data'] = billing_data
-    return billing_data
+    save_openai_cache_to_disk(now, billing_data)
+
+    res = dict(billing_data)
+    res['cached'] = False
+    res['cache_age_seconds'] = 0
+    res['cache_ttl_seconds'] = OPENAI_CACHE_TTL
+    res['cached_at'] = datetime.fromtimestamp(now, timezone.utc).isoformat()
+    return res
 
 
 @app.route('/api/openai/billing')
@@ -1070,7 +1128,8 @@ def get_openai_billing():
 @login_required
 def api_openai_billing():
     """Get OpenAI billing and usage information."""
-    return jsonify(get_openai_billing())
+    force = request.args.get('force', '').lower() in ['1', 'true', 'yes']
+    return jsonify(get_openai_billing(force_refresh=force))
 
 
 # ==========================================
