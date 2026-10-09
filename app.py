@@ -514,6 +514,16 @@ def is_meet_in_call():
     return bool(status_code == 200 and isinstance(data, dict) and data.get('inMeeting'))
 
 
+def play_meet_alarm(sound_type):
+    """Trigger alarm on/off audio broadcast in Google Meet."""
+    return http_request(
+        f'{MEET_STREAMER_URL}/alarm/play',
+        method='POST',
+        data={'type': sound_type},
+        timeout=30
+    )
+
+
 # Initialize Air Alert Manager
 air_alert = AirAlertManager(
     state_file=AIR_ALERT_STATE_FILE,
@@ -521,6 +531,7 @@ air_alert = AirAlertManager(
     apply_banner_fn=apply_banner_stream,
     send_chat_fn=send_meet_chat_internal,
     is_in_meeting_fn=is_meet_in_call,
+    play_alarm_fn=play_meet_alarm,
 )
 air_alert.start()
 
@@ -1290,6 +1301,16 @@ def api_meet_air_alert_reset_banner():
     """Remove alert overlay from stream banner and restore normal poster."""
     res = air_alert.reset_banner_to_normal()
     return jsonify({'success': True, 'status': res})
+
+
+@app.route('/api/meet/alarm/test', methods=['POST'])
+@login_required
+def api_meet_alarm_test():
+    """Test play alarm sound on/off in Google Meet."""
+    data = request.get_json(silent=True) or {}
+    sound_type = data.get('type', 'on')
+    status_code, res = play_meet_alarm(sound_type)
+    return jsonify({'success': status_code == 200, 'response': res})
 
 
 # ==========================================

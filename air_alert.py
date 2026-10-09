@@ -33,12 +33,13 @@ def get_kyiv_now():
 
 
 class AirAlertManager:
-    def __init__(self, state_file=None, get_banner_fn=None, apply_banner_fn=None, send_chat_fn=None, is_in_meeting_fn=None):
+    def __init__(self, state_file=None, get_banner_fn=None, apply_banner_fn=None, send_chat_fn=None, is_in_meeting_fn=None, play_alarm_fn=None):
         self.state_file = state_file or "/app/air_alert_state.json"
         self.get_banner_fn = get_banner_fn
         self.apply_banner_fn = apply_banner_fn
         self.send_chat_fn = send_chat_fn
         self.is_in_meeting_fn = is_in_meeting_fn
+        self.play_alarm_fn = play_alarm_fn
 
         self.lock = threading.Lock()
         self.monitoring_enabled = True
@@ -406,6 +407,7 @@ class AirAlertManager:
         )
         self._send_meet_chat(chat_msg)
         self._apply_stream_banner(alert_level=level, alert_time=start_time)
+        self._play_alarm_sound("on")
 
     def _broadcast_alert_end(self, end_time, duration_min, resume_time, delay_min):
         """Send chat all-clear and update video banner with resume time."""
@@ -421,6 +423,19 @@ class AirAlertManager:
             alert_resumes_at=resume_time,
             alert_duration=duration_min,
         )
+        self._play_alarm_sound("off")
+
+    def _play_alarm_sound(self, sound_type):
+        """Play alarm on/off sound in Google Meet call asynchronously."""
+        if not self.play_alarm_fn:
+            return
+        try:
+            if self.is_in_meeting_fn and not self.is_in_meeting_fn():
+                print(f"[AirAlert] Bot not currently in meeting. Skipping alarm sound: {sound_type}")
+                return
+            threading.Thread(target=self.play_alarm_fn, args=(sound_type,), daemon=True).start()
+        except Exception as e:
+            print(f"[AirAlert] Failed to trigger alarm sound: {e}")
 
     def _send_meet_chat(self, text):
         """Dispatch chat message to Google Meet call if active."""

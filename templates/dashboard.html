@@ -1052,6 +1052,8 @@
                 <button class="btn btn-up btn-sm" onclick="triggerAirAlertClear()" id="btn-alert-clear" title="Оголосити відбій тривоги">🟢 Відбій</button>
                 <button class="btn btn-logs btn-sm" onclick="resetAirAlertAuto()" id="btn-alert-auto" title="Скинути до авторежиму (Київ Цифровий)">🔄 Авто</button>
                 <button class="btn btn-logs btn-sm" onclick="resetAirAlertBanner()" id="btn-alert-reset-banner" title="Прибрати плашку тривоги зі стріму">🖼 Скинути плашку</button>
+                <button class="btn btn-sm" onclick="testAlarmAudio('on')" style="background: #475569; color: white; border-color: #64748b;" title="Протестувати звук сигналу тривоги (unmute -> alarm-on -> mute)">🔊 Звук тривоги</button>
+                <button class="btn btn-sm" onclick="testAlarmAudio('off')" style="background: #475569; color: white; border-color: #64748b;" title="Протестувати звук відбою (unmute -> alarm-off -> mute)">🔉 Звук відбою</button>
             </div>
         </div>
     </div>
@@ -1659,6 +1661,21 @@ window.resetAirAlertBanner = function() {
         window.fetchMeet();
     })
     .catch(console.error);
+};
+
+window.testAlarmAudio = function(type) {
+    fetch('/api/meet/alarm/test', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({type: type})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            alert('Помилка відтворення звуку: ' + JSON.stringify(data.response || data));
+        }
+    })
+    .catch(err => alert('Помилка: ' + err.message));
 };
 
 function onMeetSwitchChanged(checkbox) {
