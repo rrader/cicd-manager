@@ -19,7 +19,7 @@ import urllib.error
 import base64
 import time
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 import psutil
 
@@ -790,6 +790,106 @@ OPENAI_BILLING_CACHE = {
     'data': None
 }
 
+def get_ai_services_usage():
+    """Inspect homelab services for OpenAI keys and identify shared usage."""
+    services_to_check = [
+        {
+            'id': 'po2bot',
+            'name': 'Po2Bot',
+            'role': 'Верифікація мешканців та документів ОСББ',
+            'tab': 'po2bot',
+            'env_paths': [
+                os.path.join(SERVICES_DIR, 'po2bot', '.env'),
+                '/root/services/po2bot/.env'
+            ]
+        },
+        {
+            'id': 'light-bot',
+            'name': 'Light Bot',
+            'role': 'Моніторинг відключень світла & сповіщення',
+            'tab': 'lightbot',
+            'env_paths': [
+                os.path.join(SERVICES_DIR, 'light-bot', '.env'),
+                '/root/services/light-bot/.env'
+            ]
+        },
+        {
+            'id': 'idea_factory',
+            'name': 'Idea Factory',
+            'role': 'Фабрика ідей / AI помічник для учнів',
+            'tab': 'school',
+            'env_paths': [
+                os.path.join(SERVICES_DIR, 'Head_project', 'idea_factory', '.env'),
+                os.path.join(SERVICES_DIR, 'idea_factory', '.env'),
+                '/root/services/Head_project/idea_factory/.env'
+            ]
+        }
+    ]
+
+    found_services = []
+    key_groups = {}
+
+    for s in services_to_check:
+        key = None
+        model = None
+        for p in s['env_paths']:
+            if os.path.exists(p):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith('OPENAI_API_KEY='):
+                                key = line.split('=', 1)[1].strip('"\'')
+                            elif line.startswith('OPENAI_MODEL='):
+                                model = line.split('=', 1)[1].strip('"\'')
+                except Exception:
+                    pass
+            if key:
+                break
+
+        if key:
+            masked = key[:7] + '...' + key[-4:] if len(key) > 12 else '***'
+            s_info = {
+                'id': s['id'],
+                'name': s['name'],
+                'role': s['role'],
+                'tab': s['tab'],
+                'key_masked': masked,
+                'key_raw': key,
+                'model': model or 'gpt-4o-mini',
+                'shared': False,
+                'shared_with': []
+            }
+            found_services.append(s_info)
+            if key not in key_groups:
+                key_groups[key] = []
+            key_groups[key].append(s['name'])
+
+    has_shared_keys = False
+    for s_info in found_services:
+        shared_list = key_groups.get(s_info['key_raw'], [])
+        if len(shared_list) > 1:
+            has_shared_keys = True
+            s_info['shared'] = True
+            s_info['shared_with'] = [name for name in shared_list if name != s_info['name']]
+        del s_info['key_raw']
+
+    warning_text = None
+    if has_shared_keys:
+        all_shared = []
+        for grp in key_groups.values():
+            if len(grp) > 1:
+                all_shared.extend(grp)
+        names_str = ', '.join(dict.fromkeys(all_shared))
+        warning_text = f"Увага: Сервіси ({names_str}) використовують один спільний API-ключ OpenAI! Їхні запити ділять спільні ліміти (RPM/TPM) та бюджет організації."
+
+    return {
+        'services': found_services,
+        'has_shared_keys': has_shared_keys,
+        'shared_warning': warning_text
+    }
+
+
 def get_openai_billing():
     """Retrieve OpenAI API key info, project name, credit balance, or month cost."""
     now = time.time()
@@ -840,13 +940,18 @@ def get_openai_billing():
         'cost_usd': None,
         'project_cost_usd': None,
         'org_cost_usd': None,
+        'spent_7d': None,
+        'spent_30d': None,
+        'daily_costs': [],
         'project_name': None,
         'project_id': None,
         'key_name': None,
         'needs_admin_key': False,
         'user': None,
         'org': None,
-        'info': None
+        'info': None,
+        'balance_note': 'OpenAI блокує доступ до credit_grants через API-ключі (доступно лише через веб-браузер на platform.openai.com/settings/organization/billing/overview)',
+        'billing_overview_url': 'https://platform.openai.com/settings/organization/billing/overview'
     }
 
     query_key = admin_key or effective_key
@@ -901,38 +1006,59 @@ def get_openai_billing():
         billing_data['project_name'] = target_project_name
         billing_data['key_name'] = target_key_name
 
-        # Query costs (month spend)
+        # Query daily costs for last 30 days & calculate 7d / 30d / month spend
         try:
             now_dt = datetime.now(timezone.utc)
-            start_ts = int(now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+            start_30d = int((now_dt - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+            start_month_str = now_dt.strftime('%Y-%m-01')
 
-            # Org total cost
-            req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_ts}', headers=headers)
-            with urllib.request.urlopen(req, timeout=4) as r:
+            # Fetch daily buckets (1d) for last 30 days
+            url_costs = f'https://api.openai.com/v1/organization/costs?start_time={start_30d}&bucket_width=1d&limit=100'
+            if target_project_id:
+                url_costs += f'&project_ids={target_project_id}'
+
+            req = urllib.request.Request(url_costs, headers=headers)
+            with urllib.request.urlopen(req, timeout=6) as r:
                 c_data = json.loads(r.read())
-                tot_org = sum(
-                    sum(res.get('amount', {}).get('value', 0.0) for res in b.get('results', []))
-                    for b in c_data.get('data', [])
-                )
-                billing_data['org_cost_usd'] = round(tot_org, 4)
-                billing_data['cost_usd'] = round(tot_org, 4)
+                daily_list = []
+                for b in c_data.get('data', []):
+                    iso = b.get('end_time_iso') or ''
+                    d = iso.split('T')[0] if 'T' in iso else str(iso)
+                    val = sum(res.get('amount', {}).get('value', 0.0) for res in b.get('results', []))
+                    daily_list.append({'date': d, 'cost': round(val, 6)})
+
+                billing_data['daily_costs'] = daily_list
+                billing_data['spent_30d'] = round(sum(d['cost'] for d in daily_list), 4)
+                billing_data['spent_7d'] = round(sum(d['cost'] for d in daily_list[-7:]), 4)
+
+                month_costs = [d['cost'] for d in daily_list if d['date'] >= start_month_str]
+                cost_m = round(sum(month_costs), 4)
+                billing_data['cost_usd'] = cost_m
+                billing_data['project_cost_usd'] = cost_m
                 billing_data['has_balance'] = True
 
-            # Project specific cost if matched
+            # Query total org cost for month if project filter was applied
             if target_project_id:
-                p_req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_ts}&project_ids={target_project_id}', headers=headers)
-                with urllib.request.urlopen(p_req, timeout=4) as r:
-                    p_c_data = json.loads(r.read())
-                    tot_proj = sum(
+                start_month_ts = int(now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+                org_req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_month_ts}', headers=headers)
+                with urllib.request.urlopen(org_req, timeout=4) as r:
+                    org_data = json.loads(r.read())
+                    tot_org = sum(
                         sum(res.get('amount', {}).get('value', 0.0) for res in b.get('results', []))
-                        for b in p_c_data.get('data', [])
+                        for b in org_data.get('data', [])
                     )
-                    billing_data['project_cost_usd'] = round(tot_proj, 4)
-                    billing_data['cost_usd'] = round(tot_proj, 4)
-        except Exception:
-            pass
+                    billing_data['org_cost_usd'] = round(tot_org, 4)
+            else:
+                billing_data['org_cost_usd'] = billing_data['cost_usd']
+        except Exception as e:
+            billing_data['info'] = str(e)
     else:
         billing_data['needs_admin_key'] = True
+
+    ai_usage = get_ai_services_usage()
+    billing_data['ai_services'] = ai_usage
+    billing_data['has_shared_keys'] = ai_usage['has_shared_keys']
+    billing_data['shared_warning'] = ai_usage['shared_warning']
 
     OPENAI_BILLING_CACHE['timestamp'] = now
     OPENAI_BILLING_CACHE['data'] = billing_data
@@ -940,6 +1066,7 @@ def get_openai_billing():
 
 
 @app.route('/api/openai/billing')
+@app.route('/api/ai/billing')
 @login_required
 def api_openai_billing():
     """Get OpenAI billing and usage information."""
@@ -1499,7 +1626,8 @@ def api_school_status():
         },
         'idea_factory': {
             'online': idea_online,
-            'url': 'https://ideas.rmn.pp.ua'
+            'url': 'https://ideas.rmn.pp.ua',
+            'openai_billing': get_openai_billing()
         }
     })
 

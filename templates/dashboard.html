@@ -666,10 +666,15 @@
                     <span class="info-label">Контейнер:</span>
                     <span class="info-val">idea_factory (порт 5001)</span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">OpenAI API:</span>
+                    <span class="info-val" id="ideas-openai">--</span>
+                </div>
             </div>
 
             <div class="action-bar" style="margin-top: 1.25rem;">
                 <a href="https://ideas.rmn.pp.ua" target="_blank" class="btn btn-up btn-sm" style="text-decoration: none;">Перейти в Idea Factory ↗</a>
+                <button class="btn btn-logs btn-sm" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
                 <button class="btn btn-logs btn-sm" onclick="openLogModal('Логи Idea Factory', 'idea_factory', 'container')">📋 Логи</button>
             </div>
         </div>
@@ -847,6 +852,7 @@
             <p>Синхронізація фактичного живлення з графіками Ясно/ВОЕ та каналами сповіщень</p>
         </div>
         <div class="action-bar">
+            <button class="btn btn-logs" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
             <button class="btn btn-logs" onclick="openLogModal('Логи Light Bot', 'light-bot', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('light-bot', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchLightBot()">🔄 Оновити</button>
@@ -871,6 +877,7 @@
             <p>Управління ботом реєстрації мешканців та перевірка зв'язку з Google Sheets</p>
         </div>
         <div class="action-bar">
+            <button class="btn btn-logs" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
             <button class="btn btn-logs" onclick="openLogModal('Логи Po2Bot', 'po2bot', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('po2bot', 'restart')">🔄 Рестарт бота</button>
             <button class="btn btn-logs" onclick="fetchPo2Bot()">🔄 Оновити</button>
@@ -1158,6 +1165,107 @@
             </div>
         </div>
     </div>
+<!-- TAB: AI & EXTERNAL SERVICES -->
+<div class="tab-content" id="tab-content-ai" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>🤖 AI & Зовнішні сервіси (OpenAI)</h2>
+            <p>Моніторинг витрат, лімітів токенів та прив'язки проєктів OpenAI до сервісів хомлабу</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="fetchAIBilling()">🔄 Оновити</button>
+            <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" class="btn btn-up" style="text-decoration: none;">💳 OpenAI Billing ↗</a>
+        </div>
+    </div>
+
+    <!-- Prominent Shared Key Warning Alert -->
+    <div id="ai-shared-key-alert" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+            <span style="font-size: 1.35rem; line-height: 1;">⚠️</span>
+            <div>
+                <strong style="color: #fbbf24; font-size: 0.95rem;">Увага: Сервіси ділять один спільний API-ключ!</strong>
+                <p style="margin: 0.35rem 0 0 0; font-size: 0.85rem; color: #e2e8f0; line-height: 1.45;" id="ai-shared-key-alert-text">
+                    Виявлено, що сервіси використовують один спільний ключ OpenAI. Їхні запити ділять спільну квоту запитів (Rate Limits / TPM) та баланс організації.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Metrics Cards Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">📦 Проєкт в OpenAI</div>
+            <div style="font-weight: 700; color: #60a5fa; font-size: 1.35rem;" id="ai-tab-project">--</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;" id="ai-tab-keyname">Ключ: --</div>
+        </div>
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">📅 Цей місяць (MTD)</div>
+            <div style="font-weight: 700; color: #34d399; font-size: 1.35rem;" id="ai-tab-month">$0.00</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;" id="ai-tab-org-cost">Орг: $0.00</div>
+        </div>
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">⏱️ Останні 7 днів</div>
+            <div style="font-weight: 700; color: #38bdf8; font-size: 1.35rem;" id="ai-tab-7d">$0.00</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;">Тижнева динаміка</div>
+        </div>
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">🗓️ Останні 30 днів</div>
+            <div style="font-weight: 700; color: #a78bfa; font-size: 1.35rem;" id="ai-tab-30d">$0.00</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;">Сумарно за 30 днів</div>
+        </div>
+    </div>
+
+    <!-- Balance Explanation Box -->
+    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border-color); border-left: 4px solid #60a5fa; border-radius: 8px; padding: 0.9rem 1.25rem; margin-bottom: 1.5rem; font-size: 0.85rem; line-height: 1.45; color: var(--text-muted);">
+        <strong style="color: #fff;">💳 Залишок передоплати на балансі:</strong> OpenAI технічно обмежує зчитування кредитного балансу (credit grants) виключно через сесії браузера на platform.openai.com (повертає HTTP 403 Forbidden для будь-яких API ключів, включно з Admin Key). Точний залишок коштів завжди доступний в особистому кабінеті:
+        <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: 600; margin-left: 0.3rem;">OpenAI Billing Overview ↗</a>
+    </div>
+
+    <!-- Daily Spend Plot Card -->
+    <div class="bot-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.6rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.05rem; color: #fff;">📈 Графік витрат по днях ($ USD)</h3>
+                <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem;" id="ai-chart-subtitle">Показ витрат за обраний період</div>
+            </div>
+            <div style="display: flex; gap: 0.4rem;">
+                <button class="btn btn-sm" id="ai-btn-chart-7d" onclick="setAITabChartRange(7)" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">7 днів</button>
+                <button class="btn btn-sm" id="ai-btn-chart-14d" onclick="setAITabChartRange(14)" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">14 днів</button>
+                <button class="btn btn-sm" id="ai-btn-chart-30d" onclick="setAITabChartRange(30)" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; border-radius: 6px; background: #6366f1; color: #fff; border: none; cursor: pointer; font-weight: 600;">30 днів</button>
+            </div>
+        </div>
+
+        <div id="ai-tab-chart-container" style="width: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+            <span style="color: var(--text-dim);">Завантаження графіка витрат...</span>
+        </div>
+    </div>
+
+    <!-- Connected Services Breakdown Table -->
+    <div class="bot-card" style="padding: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; font-size: 1.05rem; color: #fff;">📋 Сервіси, підключені до OpenAI</h3>
+            <span style="font-size: 0.8rem; color: var(--text-dim);" id="ai-services-count">3 сервіси</span>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                        <th style="padding: 0.6rem 0.8rem;">Сервіс</th>
+                        <th style="padding: 0.6rem 0.8rem;">Призначення</th>
+                        <th style="padding: 0.6rem 0.8rem;">Модель</th>
+                        <th style="padding: 0.6rem 0.8rem;">API-ключ</th>
+                        <th style="padding: 0.6rem 0.8rem;">Проєкт OpenAI</th>
+                        <th style="padding: 0.6rem 0.8rem;">Статус ключа</th>
+                        <th style="padding: 0.6rem 0.8rem; text-align: right;">Дії</th>
+                    </tr>
+                </thead>
+                <tbody id="ai-services-table-body">
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 2rem;">Опитування сервісів...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -1327,8 +1435,12 @@ window.fetchLightBot = function() {
                         ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · Орг: ${ob.org || 'OpenAI'}`
                         : (ob.org ? `Орг: ${ob.org}` : '');
 
+                    const sharedBadge = ob.has_shared_keys
+                        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; cursor: pointer; margin-left: 0.35rem;" title="Спільний API-ключ з іншими сервісами хомлабу" onclick="switchTab('ai')">⚠️ Спільний ключ</span>`
+                        : '';
+
                     if (ob.project_name && costStr !== null) {
-                        lDet.innerHTML = `<strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс)</span> <small style="color: var(--text-muted);">(${ob.key_masked})</small>`;
+                        lDet.innerHTML = `<strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс)</span> <small style="color: var(--text-muted);">(${ob.key_masked})</small>${sharedBadge} <button class="btn btn-sm btn-logs" style="padding: 0.1rem 0.4rem; font-size: 0.72rem; margin-left: 0.4rem;" onclick="openOpenAICostsModal()">📊 Графік</button>`;
                     } else if (ob.has_balance && ob.balance_usd !== null) {
                         lDet.innerHTML = `<strong style="color: #60a5fa;">Залишок: $${ob.balance_usd}</strong> <span style="color: var(--text-dim);">(витрати: ${costStr || '$0'}/міс)</span>`;
                     } else if (costStr !== null) {
@@ -1440,8 +1552,12 @@ window.fetchPo2Bot = function() {
                             ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · Орг: ${ob.org || 'OpenAI'}`
                             : (ob.org ? `Орг: ${ob.org}` : '');
 
+                        const sharedBadge = ob.has_shared_keys
+                            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; cursor: pointer; margin-left: 0.35rem;" title="Спільний API-ключ з іншими сервісами хомлабу" onclick="switchTab('ai')">⚠️ Спільний ключ</span>`
+                            : '';
+
                         if (ob.project_name && costStr !== null) {
-                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс · ${ob.key_masked})</span>`;
+                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс · ${ob.key_masked})</span>${sharedBadge} <button class="btn btn-sm btn-logs" style="padding: 0.1rem 0.4rem; font-size: 0.72rem; margin-left: 0.4rem;" onclick="openOpenAICostsModal()">📊 Графік</button>`;
                         } else if (ob.has_balance && ob.balance_usd !== null) {
                             oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;">($${ob.balance_usd} залишок)</strong>`;
                         } else if (costStr !== null) {
@@ -2197,6 +2313,30 @@ window.fetchSchool = function() {
                 iPill.className = i.online ? 'status-pill up' : 'status-pill down';
                 iPill.textContent = i.online ? '🟢 Працює' : '🔴 Офлайн';
             }
+            const iOpenai = document.getElementById('ideas-openai');
+            if (iOpenai) {
+                const ob = i.openai_billing;
+                if (ob && ob.valid) {
+                    const costVal = (ob.project_cost_usd !== null && ob.project_cost_usd !== undefined) ? ob.project_cost_usd : ob.cost_usd;
+                    const costStr = (costVal !== null && costVal !== undefined)
+                        ? (costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`)
+                        : null;
+                    const projTitle = ob.project_name
+                        ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · 7д: $${ob.spent_7d || 0} · 30д: $${ob.spent_30d || 0}`
+                        : '';
+                    const sharedBadge = ob.has_shared_keys
+                        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; cursor: pointer; margin-left: 0.35rem;" title="Спільний API-ключ з іншими сервісами хомлабу" onclick="switchTab('ai')">⚠️ Спільний ключ</span>`
+                        : '';
+
+                    if (ob.project_name && costStr !== null) {
+                        iOpenai.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс · ${ob.key_masked})</span>${sharedBadge} <button class="btn btn-sm btn-logs" style="padding: 0.1rem 0.4rem; font-size: 0.72rem; margin-left: 0.4rem;" onclick="openOpenAICostsModal()">📊 Графік</button>`;
+                    } else {
+                        iOpenai.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);">(${ob.key_masked})</small>${sharedBadge}`;
+                    }
+                } else {
+                    iOpenai.innerHTML = '<span style="color: #f87171;">🔴 Не налаштовано</span>';
+                }
+            }
         })
         .catch(console.error);
 };
@@ -2304,6 +2444,205 @@ window.fetchVaultwarden = function() {
         .catch(console.error);
 };
 
+// 10. AI & EXTERNAL SERVICES BILLING TAB
+let currentAITabChartRange = 30;
+let cachedAIBillingData = null;
+
+window.openOpenAICostsModal = function() {
+    switchTab('ai');
+};
+
+window.setAITabChartRange = function(days) {
+    currentAITabChartRange = days;
+    ['7d', '14d', '30d'].forEach(id => {
+        const btn = document.getElementById(`ai-btn-chart-${id}`);
+        if (btn) {
+            btn.style.background = (id === `${days}d`) ? '#6366f1' : '#334155';
+            btn.style.fontWeight = (id === `${days}d`) ? '600' : 'normal';
+        }
+    });
+    if (cachedAIBillingData) {
+        renderAITabChart(cachedAIBillingData);
+    }
+};
+
+window.fetchAIBilling = function() {
+    fetch('/api/ai/billing')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            cachedAIBillingData = data;
+
+            // Nav badge
+            const navBadge = document.getElementById('ai-nav-badge');
+            if (navBadge) {
+                const cost = data.cost_usd || 0;
+                navBadge.textContent = cost < 0.01 && cost > 0 ? `$${cost}` : `$${Number(cost).toFixed(2)}`;
+            }
+
+            // Shared key alert
+            const alertBox = document.getElementById('ai-shared-key-alert');
+            const alertText = document.getElementById('ai-shared-key-alert-text');
+            if (alertBox && alertText) {
+                if (data.has_shared_keys && data.shared_warning) {
+                    alertBox.style.display = 'block';
+                    alertText.textContent = data.shared_warning;
+                } else {
+                    alertBox.style.display = 'none';
+                }
+            }
+
+            // Summary metrics
+            const pEl = document.getElementById('ai-tab-project');
+            const kEl = document.getElementById('ai-tab-keyname');
+            const mEl = document.getElementById('ai-tab-month');
+            const orgEl = document.getElementById('ai-tab-org-cost');
+            const wEl = document.getElementById('ai-tab-7d');
+            const m30El = document.getElementById('ai-tab-30d');
+
+            if (pEl) pEl.textContent = data.project_name ? `[${data.project_name}]` : (data.org || 'OpenAI');
+            if (kEl) kEl.textContent = `Ключ: ${data.key_name ? data.key_name + ' · ' : ''}${data.key_masked || ''}`;
+
+            const costVal = (data.project_cost_usd !== null && data.project_cost_usd !== undefined) ? data.project_cost_usd : (data.cost_usd || 0);
+            const costStr = costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`;
+            if (mEl) mEl.textContent = costStr;
+
+            const orgCost = data.org_cost_usd !== null && data.org_cost_usd !== undefined ? data.org_cost_usd : costVal;
+            const orgCostStr = orgCost < 0.01 && orgCost > 0 ? `$${orgCost}` : `$${Number(orgCost).toFixed(2)}`;
+            if (orgEl) orgEl.textContent = `Орг (${data.org || 'OpenAI'}): ${orgCostStr}`;
+
+            const spent7 = data.spent_7d || 0;
+            const spent7Str = spent7 < 0.01 && spent7 > 0 ? `$${spent7}` : `$${Number(spent7).toFixed(2)}`;
+            if (wEl) wEl.textContent = spent7Str;
+
+            const spent30 = data.spent_30d || 0;
+            const spent30Str = spent30 < 0.01 && spent30 > 0 ? `$${spent30}` : `$${Number(spent30).toFixed(2)}`;
+            if (m30El) m30El.textContent = spent30Str;
+
+            // Render Chart
+            renderAITabChart(data);
+
+            // Render Services Breakdown Table
+            const tbody = document.getElementById('ai-services-table-body');
+            const countEl = document.getElementById('ai-services-count');
+            const aiServices = data.ai_services && data.ai_services.services ? data.ai_services.services : [];
+
+            if (countEl) countEl.textContent = `${aiServices.length} сервіси`;
+
+            if (tbody) {
+                if (aiServices.length > 0) {
+                    tbody.innerHTML = aiServices.map(s => {
+                        const isShared = s.shared;
+                        const statusBadge = isShared
+                            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;" title="Ділить ключ з: ${s.shared_with.join(', ')}">⚠️ Спільний ключ</span>`
+                            : '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">🟢 Окремий ключ</span>';
+
+                        const sharedNote = isShared
+                            ? `<div style="font-size: 0.72rem; color: #f59e0b; margin-top: 0.15rem;">Спільний з: ${s.shared_with.join(', ')}</div>`
+                            : '';
+
+                        return `
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td style="padding: 0.75rem 0.8rem; font-weight: 600; color: #fff;">
+                                <span>${s.name}</span>
+                            </td>
+                            <td style="padding: 0.75rem 0.8rem; color: var(--text-muted); font-size: 0.82rem;">${s.role}</td>
+                            <td style="padding: 0.75rem 0.8rem; color: #38bdf8; font-family: monospace; font-size: 0.82rem;">${s.model}</td>
+                            <td style="padding: 0.75rem 0.8rem; color: var(--text-dim); font-family: monospace; font-size: 0.82rem;">${s.key_masked}</td>
+                            <td style="padding: 0.75rem 0.8rem; color: #60a5fa; font-weight: 600;">[${data.project_name || 'Po2'}]</td>
+                            <td style="padding: 0.75rem 0.8rem;">
+                                ${statusBadge}
+                                ${sharedNote}
+                            </td>
+                            <td style="padding: 0.75rem 0.8rem; text-align: right;">
+                                <button class="btn btn-sm btn-logs" onclick="switchTab('${s.tab || 'metrics'}')">Перейти ↗</button>
+                            </td>
+                        </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">Сервісів із ключами OpenAI не знайдено</td></tr>';
+                }
+            }
+        })
+        .catch(console.error);
+};
+
+function renderAITabChart(data) {
+    const container = document.getElementById('ai-tab-chart-container');
+    const subTitle = document.getElementById('ai-chart-subtitle');
+    if (!container) return;
+
+    const allDays = data.daily_costs || [];
+    if (!allDays.length) {
+        container.innerHTML = '<span style="color: var(--text-dim); padding: 2rem 0;">Дані щоденних витрат відсутні або ще не накопичилися</span>';
+        return;
+    }
+
+    const sliceDays = allDays.slice(-currentAITabChartRange);
+    const totalInRange = sliceDays.reduce((acc, d) => acc + (d.cost || 0), 0);
+    const totalFormatted = totalInRange < 0.01 && totalInRange > 0 ? `$${Math.round(totalInRange * 10000)/10000}` : `$${totalInRange.toFixed(2)}`;
+    if (subTitle) {
+        subTitle.textContent = `Сумарно за останні ${currentAITabChartRange} дн: ${totalFormatted} (проєкт: ${data.project_name || 'All'})`;
+    }
+
+    const maxVal = Math.max(...sliceDays.map(d => d.cost || 0), 0.001);
+
+    const width = 720;
+    const height = 180;
+    const paddingLeft = 45;
+    const paddingRight = 15;
+    const paddingTop = 20;
+    const paddingBottom = 30;
+    const plotWidth = width - paddingLeft - paddingRight;
+    const plotHeight = height - paddingTop - paddingBottom;
+
+    const barWidth = Math.max(4, Math.floor(plotWidth / sliceDays.length) - 4);
+    const gap = (plotWidth - (barWidth * sliceDays.length)) / (sliceDays.length + 1);
+
+    let svg = `<svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: auto; display: block; overflow: visible;">`;
+
+    // Grid lines
+    const gridSteps = 3;
+    for (let i = 0; i <= gridSteps; i++) {
+        const yVal = (maxVal / gridSteps) * (gridSteps - i);
+        const yPos = paddingTop + (plotHeight / gridSteps) * i;
+        const valText = yVal < 0.01 && yVal > 0 ? `$${Math.round(yVal * 10000)/10000}` : `$${yVal.toFixed(3)}`;
+        svg += `<line x1="${paddingLeft}" y1="${yPos}" x2="${width - paddingRight}" y2="${yPos}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />`;
+        svg += `<text x="${paddingLeft - 6}" y="${yPos + 4}" fill="#64748b" font-size="10" text-anchor="end">${valText}</text>`;
+    }
+
+    // Bars
+    sliceDays.forEach((item, idx) => {
+        const val = item.cost || 0;
+        const h = val > 0 ? Math.max(3, (val / maxVal) * plotHeight) : 2;
+        const x = paddingLeft + gap + idx * (barWidth + gap);
+        const y = paddingTop + plotHeight - h;
+        const fill = val > 0 ? '#38bdf8' : 'rgba(148, 163, 184, 0.2)';
+        const dateStr = item.date || '';
+        const shortDate = dateStr.slice(5); // MM-DD
+        const costStr = val < 0.01 && val > 0 ? `$${Math.round(val * 10000)/10000}` : `$${val.toFixed(4)}`;
+
+        svg += `
+        <g class="chart-bar-group" style="cursor: pointer;">
+            <rect x="${x}" y="${y}" width="${barWidth}" height="${h}" rx="2" fill="${fill}" opacity="0.9">
+                <title>${dateStr}: ${costStr}</title>
+            </rect>`;
+
+        const showLabel = (currentAITabChartRange <= 7) ||
+                           (currentAITabChartRange <= 14 && idx % 2 === 0) ||
+                           (currentAITabChartRange > 14 && (idx % 4 === 0 || idx === sliceDays.length - 1));
+
+        if (showLabel) {
+            svg += `<text x="${x + barWidth / 2}" y="${height - 10}" fill="#94a3b8" font-size="9" text-anchor="middle">${shortDate}</text>`;
+        }
+        svg += `</g>`;
+    });
+
+    svg += `</svg>`;
+    container.innerHTML = svg;
+}
+
 // Initial fetch & 5s interval loop
 document.addEventListener('DOMContentLoaded', () => {
     fetchMetrics();
@@ -2315,6 +2654,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchDomains();
     fetchSyncthing();
     fetchVaultwarden();
+    fetchAIBilling();
 
     setInterval(() => {
         if (currentActiveTab === 'metrics') fetchMetrics();
@@ -2325,6 +2665,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentActiveTab === 'lightbot') fetchLightBot();
         if (currentActiveTab === 'po2bot') fetchPo2Bot();
         if (currentActiveTab === 'meet') fetchMeet();
+        if (currentActiveTab === 'ai') fetchAIBilling();
     }, 5000);
 });
 </script>
