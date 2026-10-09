@@ -378,7 +378,7 @@ class AirAlertManager:
                             self.resumed_banner_restored = True
                             self._save_state()
                         self._apply_stream_banner(alert_level=None)
-                        self._send_meet_chat("🔔 Урок починається!")
+                        self._send_meet_chat("🔔 Синхронне навчання продовжується!")
                         self._play_alarm_sound("resume")
 
                 # 3. Check Kyiv Digital API
@@ -550,7 +550,7 @@ class AirAlertManager:
         chat_msg = (
             f"🟢 Відбій повітряної тривоги в м. Київ. "
             f"Час відбою: {end_time} (тривала {duration_min} хв). "
-            f"Заняття розпочнеться о {resume_time} (через {delay_min} хв)."
+            f"Синхронне навчання відновиться о {resume_time} (через {delay_min} хв)."
         )
         self._send_meet_chat(chat_msg)
         self._apply_stream_banner(
