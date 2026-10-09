@@ -17,6 +17,7 @@ import json
 import urllib.request
 import urllib.error
 import base64
+import time
 from datetime import datetime, timezone
 from functools import wraps
 import psutil
@@ -733,7 +734,11 @@ def api_light_bot_status():
         except Exception:
             pass
 
-    return jsonify({'success': True, 'locations': locations})
+    return jsonify({
+        'success': True,
+        'locations': locations,
+        'openai_billing': get_openai_billing()
+    })
 
 
 @app.route('/api/light-bot/toggle/<loc_id>', methods=['POST'])
@@ -762,21 +767,137 @@ def api_light_bot_toggle(loc_id):
 
 
 # ==========================================
+# OPENAI BILLING & USAGE APIS
+# ==========================================
+
+OPENAI_BILLING_CACHE = {
+    'timestamp': 0,
+    'data': None
+}
+
+def get_openai_billing():
+    """Retrieve OpenAI API key info, credit balance, or month cost."""
+    now = time.time()
+    if OPENAI_BILLING_CACHE['data'] and (now - OPENAI_BILLING_CACHE['timestamp'] < 300):
+        return OPENAI_BILLING_CACHE['data']
+
+    key = os.environ.get('OPENAI_ADMIN_KEY') or os.environ.get('OPENAI_API_KEY')
+    if not key:
+        candidate_paths = [
+            os.path.join(SERVICES_DIR, 'light-bot', '.env'),
+            os.path.join(SERVICES_DIR, 'po2bot', '.env'),
+            os.path.join(SERVICES_DIR, '.env'),
+            '/root/services/light-bot/.env',
+            '/root/services/po2bot/.env',
+            '/root/services/.env'
+        ]
+        for p in candidate_paths:
+            if os.path.exists(p):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith('OPENAI_ADMIN_KEY='):
+                                key = line.split('=', 1)[1].strip('"\'')
+                                break
+                            elif line.startswith('OPENAI_API_KEY=') and not key:
+                                key = line.split('=', 1)[1].strip('"\'')
+                except Exception:
+                    pass
+            if key:
+                break
+
+    if not key:
+        res = {'success': False, 'valid': False, 'error': 'API-ключ не налаштовано'}
+        OPENAI_BILLING_CACHE['timestamp'] = now
+        OPENAI_BILLING_CACHE['data'] = res
+        return res
+
+    masked = key[:7] + '...' + key[-4:] if len(key) > 12 else '***'
+    billing_data = {
+        'success': True,
+        'valid': True,
+        'key_masked': masked,
+        'has_balance': False,
+        'balance_usd': None,
+        'cost_usd': None,
+        'needs_admin_key': False,
+        'user': None,
+        'org': None,
+        'info': None
+    }
+
+    headers = {'Authorization': f'Bearer {key}', 'User-Agent': 'cicd-manager'}
+
+    # 1. Query /v1/me to verify user & org
+    try:
+        req = urllib.request.Request('https://api.openai.com/v1/me', headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as r:
+            me_data = json.loads(r.read())
+            billing_data['user'] = me_data.get('name') or me_data.get('email')
+            orgs = me_data.get('orgs', {}).get('data', [])
+            if orgs:
+                billing_data['org'] = orgs[0].get('title') or orgs[0].get('name')
+    except Exception as e:
+        billing_data['info'] = str(e)
+
+    # 2. Try /v1/organization/costs for month spend
+    try:
+        now_dt = datetime.now(timezone.utc)
+        start_ts = int(now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+        req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_ts}', headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as r:
+            c_data = json.loads(r.read())
+            tot = sum(item.get('amount', {}).get('value', 0.0) for item in c_data.get('data', []))
+            billing_data['cost_usd'] = round(tot, 2)
+            billing_data['has_balance'] = True
+    except urllib.error.HTTPError as e:
+        if e.code == 403:
+            billing_data['needs_admin_key'] = True
+    except Exception:
+        pass
+
+    # 3. Try credit grants
+    try:
+        req = urllib.request.Request('https://api.openai.com/v1/dashboard/billing/credit_grants', headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as r:
+            cg = json.loads(r.read())
+            billing_data['balance_usd'] = round(cg.get('total_available', 0.0), 2)
+            billing_data['has_balance'] = True
+    except Exception:
+        pass
+
+    OPENAI_BILLING_CACHE['timestamp'] = now
+    OPENAI_BILLING_CACHE['data'] = billing_data
+    return billing_data
+
+
+@app.route('/api/openai/billing')
+@login_required
+def api_openai_billing():
+    """Get OpenAI billing and usage information."""
+    return jsonify(get_openai_billing())
+
+
+# ==========================================
 # PO2BOT APIS
 # ==========================================
 
 @app.route('/api/po2bot/status')
 @login_required
 def api_po2bot_status():
-    """Proxy Po2Bot status and pending count."""
+    """Proxy Po2Bot status, pending count, and OpenAI billing info."""
     status_code, data = http_request(f'{PO2BOT_URL}/status', timeout=4)
+    billing = get_openai_billing()
     if status_code != 200:
-        return jsonify({'success': False, 'status': 'offline', 'error': str(data)}), 200
+        return jsonify({'success': False, 'status': 'offline', 'error': str(data), 'openai_billing': billing}), 200
     
     if isinstance(data, dict):
         data['success'] = True
+        data['openai_billing'] = billing
         return jsonify(data)
-    return jsonify({'success': False, 'status': 'offline'})
+    return jsonify({'success': False, 'status': 'offline', 'openai_billing': billing})
+
 
 
 @app.route('/api/po2bot/pending')
@@ -1174,6 +1295,12 @@ def api_meet_air_alert_reset_banner():
 # SCHOOL SERVICES APIS (MOODLE, JOBE, ROSTER, IDEA FACTORY)
 # ==========================================
 
+SCHOOL_CACHE = {
+    'moodle_volume_size': '--',
+    'roster_db_size': '--',
+    'timestamp': 0
+}
+
 @app.route('/api/school/status')
 @login_required
 def api_school_status():
@@ -1209,9 +1336,7 @@ def api_school_status():
     moodle_online = False
     moodle_stats = {
         'courses_count': 0,
-        'users_count': 0,
-        'needs_grading_count': 0,
-        'top_pending': []
+        'users_count': 0
     }
     try:
         m_code, _ = http_request('http://services-moodle-1:8080/', headers={'Host': 'moodle.rmn.pp.ua'}, timeout=4)
@@ -1219,37 +1344,48 @@ def api_school_status():
     except Exception:
         pass
 
-    # Query Moodle MariaDB via host command
+    # Query Moodle MariaDB for basic stats (courses, users)
     try:
         sql = (
             "SELECT count(*) FROM mdl_course WHERE id > 1; "
-            "SELECT count(*) FROM mdl_user WHERE deleted = 0 AND id > 1; "
-            "SELECT count(distinct qa.id) FROM mdl_quiz_attempts qa JOIN mdl_question_attempts qatt ON qatt.questionusageid = qa.uniqueid JOIN mdl_question_attempt_steps qas ON qas.questionattemptid = qatt.id WHERE qa.state = 'finished' AND qas.state = 'needsgrading'; "
-            "SELECT q.id, q.name, count(distinct qa.id) as pending FROM mdl_quiz_attempts qa JOIN mdl_quiz q ON q.id = qa.quiz JOIN mdl_question_attempts qatt ON qatt.questionusageid = qa.uniqueid JOIN mdl_question_attempt_steps qas ON qas.questionattemptid = qatt.id WHERE qa.state = 'finished' AND qas.state = 'needsgrading' GROUP BY q.id ORDER BY pending DESC LIMIT 5;"
+            "SELECT count(*) FROM mdl_user WHERE deleted = 0 AND id > 1;"
         )
         cmd = f"docker exec -i services-mariadb-1 mariadb -u bn_moodle bitnami_moodle -sN -e \"{sql}\""
-        res = exec_host_command(cmd, timeout=8)
+        res = exec_host_command(cmd, timeout=5)
         if res.get('success'):
             lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
-            if len(lines) >= 3:
+            if len(lines) >= 2:
                 moodle_stats['courses_count'] = int(lines[0])
                 moodle_stats['users_count'] = int(lines[1])
-                moodle_stats['needs_grading_count'] = int(lines[2])
-                top_pending = []
-                for l in lines[3:]:
-                    parts = l.split('\t')
-                    if len(parts) >= 3:
-                        top_pending.append({'quiz_id': parts[0], 'name': parts[1], 'pending': int(parts[2])})
-                moodle_stats['top_pending'] = top_pending
     except Exception as e:
         print(f"Error querying Moodle stats: {e}")
+
+    # Query storage sizes (Moodle volume & Roster DB) with 3-minute caching
+    now = time.time()
+    if now - SCHOOL_CACHE['timestamp'] > 180:
+        try:
+            cmd = 'sh -c "docker exec services-moodle-1 du -sh /bitnami/moodledata 2>/dev/null; ls -lh /root/services/roster/data/db.sqlite3 2>/dev/null"'
+            res = exec_host_command(cmd, timeout=8)
+            if res.get('success'):
+                lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
+                if len(lines) >= 1:
+                    SCHOOL_CACHE['moodle_volume_size'] = lines[0].split()[0]
+                if len(lines) >= 2:
+                    p = lines[1].split()
+                    if len(p) >= 5:
+                        SCHOOL_CACHE['roster_db_size'] = p[4]
+                SCHOOL_CACHE['timestamp'] = now
+        except Exception as e:
+            print(f"Error checking school storage sizes: {e}")
 
     return jsonify({
         'success': True,
         'moodle': {
             'online': moodle_online,
             'url': 'https://moodle.rmn.pp.ua',
-            **moodle_stats
+            'courses_count': moodle_stats['courses_count'],
+            'users_count': moodle_stats['users_count'],
+            'volume_size': SCHOOL_CACHE['moodle_volume_size']
         },
         'jobe': {
             'online': jobe_online,
@@ -1258,7 +1394,8 @@ def api_school_status():
         },
         'roster': {
             'online': roster_online,
-            'url': 'https://students.rmn.pp.ua'
+            'url': 'https://students.rmn.pp.ua',
+            'db_size': SCHOOL_CACHE['roster_db_size']
         },
         'idea_factory': {
             'online': idea_online,
@@ -1325,7 +1462,7 @@ def api_vaultwarden_status():
     db_size = "--"
     last_backup = None
     try:
-        cmd = 'sh -c "ls -lh /root/services/bw-data/db.sqlite3 2>/dev/null; ls -lh /root/services/bw-data-backup* 2>/dev/null"'
+        cmd = 'sh -c "ls -lh /root/services/bw-data/db.sqlite3 2>/dev/null; ls -1t /root/services/obsidian-vault-personal/backups/vaultwarden/bw-data-backup* /root/services/backups/bw-data-backup* /root/services/bw-data-backup* 2>/dev/null | head -n 1 | xargs -r ls -lh"'
         res = exec_host_command(cmd, timeout=5)
         if res.get('success'):
             lines = [l.strip() for l in res['output'].splitlines() if l.strip() and not l.startswith('**')]
