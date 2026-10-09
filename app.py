@@ -791,44 +791,46 @@ OPENAI_BILLING_CACHE = {
 }
 
 def get_openai_billing():
-    """Retrieve OpenAI API key info, credit balance, or month cost."""
+    """Retrieve OpenAI API key info, project name, credit balance, or month cost."""
     now = time.time()
     if OPENAI_BILLING_CACHE['data'] and (now - OPENAI_BILLING_CACHE['timestamp'] < 300):
         return OPENAI_BILLING_CACHE['data']
 
-    key = os.environ.get('OPENAI_ADMIN_KEY') or os.environ.get('OPENAI_API_KEY')
-    if not key:
-        candidate_paths = [
-            os.path.join(SERVICES_DIR, 'light-bot', '.env'),
-            os.path.join(SERVICES_DIR, 'po2bot', '.env'),
-            os.path.join(SERVICES_DIR, '.env'),
-            '/root/services/light-bot/.env',
-            '/root/services/po2bot/.env',
-            '/root/services/.env'
-        ]
-        for p in candidate_paths:
-            if os.path.exists(p):
-                try:
-                    with open(p, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            line = line.strip()
-                            if line.startswith('OPENAI_ADMIN_KEY='):
-                                key = line.split('=', 1)[1].strip('"\'')
-                                break
-                            elif line.startswith('OPENAI_API_KEY=') and not key:
-                                key = line.split('=', 1)[1].strip('"\'')
-                except Exception:
-                    pass
-            if key:
-                break
+    admin_key = os.environ.get('OPENAI_ADMIN_KEY')
+    api_key = os.environ.get('OPENAI_API_KEY')
 
-    if not key:
+    candidate_paths = [
+        os.path.join(SERVICES_DIR, 'cicd-manager', '.env'),
+        os.path.join(SERVICES_DIR, 'po2bot', '.env'),
+        os.path.join(SERVICES_DIR, 'light-bot', '.env'),
+        os.path.join(SERVICES_DIR, '.env'),
+        '/root/services/cicd-manager/.env',
+        '/root/services/po2bot/.env',
+        '/root/services/light-bot/.env',
+        '/root/services/.env'
+    ]
+
+    for p in candidate_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not admin_key and line.startswith('OPENAI_ADMIN_KEY='):
+                            admin_key = line.split('=', 1)[1].strip('"\'')
+                        elif not api_key and line.startswith('OPENAI_API_KEY='):
+                            api_key = line.split('=', 1)[1].strip('"\'')
+            except Exception:
+                pass
+
+    effective_key = api_key or admin_key
+    if not effective_key:
         res = {'success': False, 'valid': False, 'error': 'API-ключ не налаштовано'}
         OPENAI_BILLING_CACHE['timestamp'] = now
         OPENAI_BILLING_CACHE['data'] = res
         return res
 
-    masked = key[:7] + '...' + key[-4:] if len(key) > 12 else '***'
+    masked = effective_key[:7] + '...' + effective_key[-4:] if len(effective_key) > 12 else '***'
     billing_data = {
         'success': True,
         'valid': True,
@@ -836,13 +838,19 @@ def get_openai_billing():
         'has_balance': False,
         'balance_usd': None,
         'cost_usd': None,
+        'project_cost_usd': None,
+        'org_cost_usd': None,
+        'project_name': None,
+        'project_id': None,
+        'key_name': None,
         'needs_admin_key': False,
         'user': None,
         'org': None,
         'info': None
     }
 
-    headers = {'Authorization': f'Bearer {key}', 'User-Agent': 'cicd-manager'}
+    query_key = admin_key or effective_key
+    headers = {'Authorization': f'Bearer {query_key}', 'User-Agent': 'cicd-manager'}
 
     # 1. Query /v1/me to verify user & org
     try:
@@ -856,31 +864,75 @@ def get_openai_billing():
     except Exception as e:
         billing_data['info'] = str(e)
 
-    # 2. Try /v1/organization/costs for month spend
-    try:
-        now_dt = datetime.now(timezone.utc)
-        start_ts = int(now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
-        req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_ts}', headers=headers)
-        with urllib.request.urlopen(req, timeout=4) as r:
-            c_data = json.loads(r.read())
-            tot = sum(item.get('amount', {}).get('value', 0.0) for item in c_data.get('data', []))
-            billing_data['cost_usd'] = round(tot, 2)
-            billing_data['has_balance'] = True
-    except urllib.error.HTTPError as e:
-        if e.code == 403:
-            billing_data['needs_admin_key'] = True
-    except Exception:
-        pass
+    # 2. If admin_key is present, match project and query usage/costs
+    target_project_id = None
+    target_project_name = None
+    target_key_name = None
 
-    # 3. Try credit grants
-    try:
-        req = urllib.request.Request('https://api.openai.com/v1/dashboard/billing/credit_grants', headers=headers)
-        with urllib.request.urlopen(req, timeout=4) as r:
-            cg = json.loads(r.read())
-            billing_data['balance_usd'] = round(cg.get('total_available', 0.0), 2)
-            billing_data['has_balance'] = True
-    except Exception:
-        pass
+    if admin_key:
+        try:
+            req = urllib.request.Request('https://api.openai.com/v1/organization/projects', headers=headers)
+            with urllib.request.urlopen(req, timeout=4) as r:
+                projects_data = json.loads(r.read())
+
+            key_suffix = effective_key[-4:] if len(effective_key) >= 4 else ''
+            for p in projects_data.get('data', []):
+                pid = p.get('id')
+                pname = p.get('name')
+                try:
+                    k_req = urllib.request.Request(f'https://api.openai.com/v1/organization/projects/{pid}/api_keys', headers=headers)
+                    with urllib.request.urlopen(k_req, timeout=4) as kr:
+                        keys_data = json.loads(kr.read())
+                        for k in keys_data.get('data', []):
+                            redacted = k.get('redacted_value', '')
+                            if redacted.endswith(key_suffix):
+                                target_project_id = pid
+                                target_project_name = pname
+                                target_key_name = k.get('name')
+                                break
+                except Exception:
+                    pass
+                if target_project_id:
+                    break
+        except Exception:
+            pass
+
+        billing_data['project_id'] = target_project_id
+        billing_data['project_name'] = target_project_name
+        billing_data['key_name'] = target_key_name
+
+        # Query costs (month spend)
+        try:
+            now_dt = datetime.now(timezone.utc)
+            start_ts = int(now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+
+            # Org total cost
+            req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_ts}', headers=headers)
+            with urllib.request.urlopen(req, timeout=4) as r:
+                c_data = json.loads(r.read())
+                tot_org = sum(
+                    sum(res.get('amount', {}).get('value', 0.0) for res in b.get('results', []))
+                    for b in c_data.get('data', [])
+                )
+                billing_data['org_cost_usd'] = round(tot_org, 4)
+                billing_data['cost_usd'] = round(tot_org, 4)
+                billing_data['has_balance'] = True
+
+            # Project specific cost if matched
+            if target_project_id:
+                p_req = urllib.request.Request(f'https://api.openai.com/v1/organization/costs?start_time={start_ts}&project_ids={target_project_id}', headers=headers)
+                with urllib.request.urlopen(p_req, timeout=4) as r:
+                    p_c_data = json.loads(r.read())
+                    tot_proj = sum(
+                        sum(res.get('amount', {}).get('value', 0.0) for res in b.get('results', []))
+                        for b in p_c_data.get('data', [])
+                    )
+                    billing_data['project_cost_usd'] = round(tot_proj, 4)
+                    billing_data['cost_usd'] = round(tot_proj, 4)
+        except Exception:
+            pass
+    else:
+        billing_data['needs_admin_key'] = True
 
     OPENAI_BILLING_CACHE['timestamp'] = now
     OPENAI_BILLING_CACHE['data'] = billing_data

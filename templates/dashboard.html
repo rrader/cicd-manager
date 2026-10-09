@@ -1319,10 +1319,22 @@ window.fetchLightBot = function() {
             if (ob && lSt && lDet) {
                 if (ob.valid) {
                     lSt.innerHTML = '<span style="color: #34d399;">🟢 Підключено</span>';
-                    if (ob.has_balance) {
-                        lDet.innerHTML = `<strong style="color: #60a5fa;">Залишок: $${ob.balance_usd || 0}</strong> <span style="color: var(--text-dim);">(витрати: $${ob.cost_usd || 0})</span>`;
+                    const costVal = (ob.project_cost_usd !== null && ob.project_cost_usd !== undefined) ? ob.project_cost_usd : ob.cost_usd;
+                    const costStr = (costVal !== null && costVal !== undefined)
+                        ? (costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`)
+                        : null;
+                    const projTitle = ob.project_name
+                        ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · Орг: ${ob.org || 'OpenAI'}`
+                        : (ob.org ? `Орг: ${ob.org}` : '');
+
+                    if (ob.project_name && costStr !== null) {
+                        lDet.innerHTML = `<strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс)</span> <small style="color: var(--text-muted);">(${ob.key_masked})</small>`;
+                    } else if (ob.has_balance && ob.balance_usd !== null) {
+                        lDet.innerHTML = `<strong style="color: #60a5fa;">Залишок: $${ob.balance_usd}</strong> <span style="color: var(--text-dim);">(витрати: ${costStr || '$0'}/міс)</span>`;
+                    } else if (costStr !== null) {
+                        lDet.innerHTML = `<span style="color: #60a5fa;" title="${projTitle}">Витрати: ${costStr}/міс</span> <small style="color: var(--text-muted);">(${ob.key_masked})</small>`;
                     } else if (ob.needs_admin_key) {
-                        lDet.innerHTML = `<span style="color: var(--text-muted);">${ob.key_masked}</span> · <span style="color: #f59e0b;" title="Для перегляду балансу потрібен Admin Key з дозволом api.usage.read">ℹ️ Потрібен Admin Key</span>`;
+                        lDet.innerHTML = `<span style="color: var(--text-muted);">${ob.key_masked}</span> · <span style="color: #f59e0b;" title="Для перегляду витрат потрібен Admin Key">ℹ️ Потрібен Admin Key</span>`;
                     } else {
                         lDet.textContent = ob.key_masked;
                     }
@@ -1420,10 +1432,22 @@ window.fetchPo2Bot = function() {
                 if (oEl) {
                     const ob = data.openai_billing;
                     if (ob && ob.valid) {
-                        if (ob.has_balance) {
-                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;">($${ob.balance_usd || 0} залишок)</strong>`;
+                        const costVal = (ob.project_cost_usd !== null && ob.project_cost_usd !== undefined) ? ob.project_cost_usd : ob.cost_usd;
+                        const costStr = (costVal !== null && costVal !== undefined)
+                            ? (costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`)
+                            : null;
+                        const projTitle = ob.project_name
+                            ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · Орг: ${ob.org || 'OpenAI'}`
+                            : (ob.org ? `Орг: ${ob.org}` : '');
+
+                        if (ob.project_name && costStr !== null) {
+                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс · ${ob.key_masked})</span>`;
+                        } else if (ob.has_balance && ob.balance_usd !== null) {
+                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;">($${ob.balance_usd} залишок)</strong>`;
+                        } else if (costStr !== null) {
+                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;">(${costStr} витрати/міс)</strong> <small style="color: var(--text-dim);">(${ob.key_masked})</small>`;
                         } else if (ob.needs_admin_key) {
-                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);" title="Для точного балансу потрібен Admin Key з api.usage.read">(${ob.key_masked} · ℹ️ Баланс потребує Admin Key)</small>`;
+                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);" title="Для точного балансу/витрат потрібен Admin Key">(${ob.key_masked} · ℹ️ Баланс потребує Admin Key)</small>`;
                         } else {
                             oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);">(${ob.key_masked})</small>`;
                         }
