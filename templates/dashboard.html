@@ -1052,9 +1052,18 @@
                 <button class="btn btn-up btn-sm" onclick="triggerAirAlertClear()" id="btn-alert-clear" title="Оголосити відбій тривоги">🟢 Відбій</button>
                 <button class="btn btn-logs btn-sm" onclick="resetAirAlertAuto()" id="btn-alert-auto" title="Скинути до авторежиму (Київ Цифровий)">🔄 Авто</button>
                 <button class="btn btn-logs btn-sm" onclick="resetAirAlertBanner()" id="btn-alert-reset-banner" title="Прибрати плашку тривоги зі стріму">🖼 Скинути плашку</button>
-                <button class="btn btn-sm" onclick="testAlarmAudio('on')" style="background: #475569; color: white; border-color: #64748b;" title="Протестувати звук сигналу тривоги (unmute -> alarm-on -> mute)">🔊 Звук тривоги</button>
-                <button class="btn btn-sm" onclick="testAlarmAudio('off')" style="background: #475569; color: white; border-color: #64748b;" title="Протестувати звук відбою (unmute -> alarm-off -> mute)">🔉 Звук відбою</button>
-                <button class="btn btn-sm" onclick="testAlarmAudio('resume')" style="background: #475569; color: white; border-color: #64748b;" title="Протестувати звук відновлення уроку (unmute -> alarm-resume -> mute)">🔔 Початок уроку</button>
+            </div>
+
+            <!-- Тестування аудіосповіщень у Meet -->
+            <div style="margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px dashed var(--border-color);">
+                <div style="font-size: 0.8rem; font-weight: 600; color: #94a3b8; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.35rem;">
+                    <span>🎧</span> Тестування звуків у Meet (unmute &rarr; play &rarr; mute):
+                </div>
+                <div class="action-bar" style="flex-wrap: wrap; gap: 0.4rem;">
+                    <button class="btn btn-sm" onclick="testAlarmAudio('on')" style="background: #6366f1; color: white; border-color: #4f46e5; font-weight: 500;" title="Протестувати звук сигналу тривоги (unmute -> alarm-on -> mute)">🔊 Звук тривоги</button>
+                    <button class="btn btn-sm" onclick="testAlarmAudio('off')" style="background: #0284c7; color: white; border-color: #0369a1; font-weight: 500;" title="Протестувати звук відбою (unmute -> alarm-off -> mute)">🔉 Звук відбою</button>
+                    <button class="btn btn-sm" onclick="testAlarmAudio('resume')" style="background: #059669; color: white; border-color: #047857; font-weight: 500;" title="Протестувати звук відновлення уроку (unmute -> alarm-resume -> mute)">🔔 Початок уроку</button>
+                </div>
             </div>
         </div>
     </div>
