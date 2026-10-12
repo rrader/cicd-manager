@@ -620,7 +620,7 @@ def dashboard(tab='metrics'):
 def api_system_metrics():
     """Fetch live host resources and docker stats."""
     try:
-        cpu_percent = psutil.cpu_percent(interval=None)
+        cpu_percent = psutil.cpu_percent(interval=0.15)
         cpu_count = psutil.cpu_count(logical=True)
         
         vm = psutil.virtual_memory()
@@ -2216,7 +2216,7 @@ def background_metrics_collector():
             
             # 1. Collect Monica metrics
             try:
-                cpu_p = psutil.cpu_percent(interval=None)
+                cpu_p = psutil.cpu_percent(interval=0.2)
                 ram_mem = psutil.virtual_memory()
                 swap_mem = psutil.swap_memory()
                 points.append((now, 'monica', 'cpu', float(cpu_p)))
