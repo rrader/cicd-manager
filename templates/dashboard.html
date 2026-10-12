@@ -558,7 +558,13 @@
         <div class="bot-card" style="grid-column: span 2;">
             <div class="bot-card-header">
                 <h3><span>🎓</span> Moodle LMS (moodle.rmn.pp.ua)</h3>
-                <span class="status-pill" id="moodle-status-pill">Опитування...</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Увімкнути / вимкнути Moodle (services-moodle-1)">
+                        <input type="checkbox" id="moodle-power-switch" onchange="toggleServiceContainer('services-moodle-1', this, 'moodle-status-pill')">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill" id="moodle-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-moodle-1', 'moodle-power-switch', 'moodle-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+                </div>
             </div>
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
@@ -591,7 +597,13 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>⚡</span> Jobe Code Runner (CodeRunner)</h3>
-                <span class="status-pill" id="jobe-status-pill">Опитування...</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Увімкнути / вимкнути Jobe (jobeserver)">
+                        <input type="checkbox" id="jobe-power-switch" onchange="toggleServiceContainer('jobeserver', this, 'jobe-status-pill')">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill" id="jobe-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('jobeserver', 'jobe-power-switch', 'jobe-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+                </div>
             </div>
 
             <div class="info-list">
@@ -626,7 +638,13 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>📋</span> Students Roster (Списки учнів)</h3>
-                <span class="status-pill" id="roster-status-pill">Опитування...</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Увімкнути / вимкнути Students Roster (services-roster-1)">
+                        <input type="checkbox" id="roster-power-switch" onchange="toggleServiceContainer('services-roster-1', this, 'roster-status-pill')">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill" id="roster-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-roster-1', 'roster-power-switch', 'roster-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+                </div>
             </div>
 
             <div class="info-list">
@@ -654,7 +672,13 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>💡</span> Idea Factory (Фабрика ідей)</h3>
-                <span class="status-pill" id="ideas-status-pill">Опитування...</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Увімкнути / вимкнути Idea Factory (idea_factory)">
+                        <input type="checkbox" id="ideas-power-switch" onchange="toggleServiceContainer('idea_factory', this, 'ideas-status-pill')">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill" id="ideas-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('idea_factory', 'ideas-power-switch', 'ideas-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+                </div>
             </div>
 
             <div class="info-list">
@@ -688,7 +712,14 @@
             <h2>🔄 Syncthing & Obsidian Sync</h2>
             <p>Синхронізація сховища нотаток obsidian-vault-personal та контроль конфліктів</p>
         </div>
-        <div class="action-bar">
+        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="toggle-switch-wrapper">
+                <label class="toggle-switch" title="Увімкнути / вимкнути Syncthing (syncthing)">
+                    <input type="checkbox" id="syncthing-top-power-switch" onchange="toggleServiceContainer('syncthing', this, 'syncthing-status-pill')">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="status-pill" id="syncthing-top-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('syncthing', 'syncthing-top-power-switch', 'syncthing-top-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+            </div>
             <button class="btn btn-logs" onclick="openLogModal('Логи Syncthing', 'syncthing', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('syncthing', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchSyncthing()">🔄 Оновити</button>
@@ -701,7 +732,13 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>🔄</span> Стан демона Syncthing</h3>
-                <span class="status-pill" id="syncthing-status-pill">Опитування...</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Увімкнути / вимкнути Syncthing (syncthing)">
+                        <input type="checkbox" id="syncthing-power-switch" onchange="toggleServiceContainer('syncthing', this, 'syncthing-status-pill')">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill" id="syncthing-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('syncthing', 'syncthing-power-switch', 'syncthing-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+                </div>
             </div>
 
             <div class="info-list">
@@ -741,7 +778,14 @@
             <h2>🔐 Vaultwarden (Bitwarden)</h2>
             <p>Менеджер паролів bitwarden.rmn.pp.ua, стан бази SQLite та резервні копії</p>
         </div>
-        <div class="action-bar">
+        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="toggle-switch-wrapper">
+                <label class="toggle-switch" title="Увімкнути / вимкнути Vaultwarden (services-bitwarden-1)">
+                    <input type="checkbox" id="vw-top-power-switch" onchange="toggleServiceContainer('services-bitwarden-1', this, 'vw-status-pill')">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="status-pill" id="vw-top-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-bitwarden-1', 'vw-top-power-switch', 'vw-top-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+            </div>
             <button class="btn btn-logs" onclick="openLogModal('Логи Bitwarden', 'services-bitwarden-1', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('services-bitwarden-1', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchVaultwarden()">🔄 Оновити</button>
@@ -754,7 +798,13 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>🔐</span> Стан сервера Vaultwarden</h3>
-                <span class="status-pill" id="vw-status-pill">Опитування...</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Увімкнути / вимкнути Vaultwarden (services-bitwarden-1)">
+                        <input type="checkbox" id="vw-power-switch" onchange="toggleServiceContainer('services-bitwarden-1', this, 'vw-status-pill')">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill" id="vw-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-bitwarden-1', 'vw-power-switch', 'vw-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+                </div>
             </div>
 
             <div class="info-list">
@@ -851,7 +901,14 @@
             <h2>💡 Light Bot (Моніторинг відключень світла)</h2>
             <p>Синхронізація фактичного живлення з графіками Ясно/ВОЕ та каналами сповіщень</p>
         </div>
-        <div class="action-bar">
+        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="toggle-switch-wrapper">
+                <label class="toggle-switch" title="Увімкнути / вимкнути Light Bot (light-bot)">
+                    <input type="checkbox" id="lightbot-power-switch" onchange="toggleServiceContainer('light-bot', this, 'lightbot-status-pill')">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="status-pill" id="lightbot-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('light-bot', 'lightbot-power-switch', 'lightbot-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+            </div>
             <button class="btn btn-logs" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
             <button class="btn btn-logs" onclick="openLogModal('Логи Light Bot', 'light-bot', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('light-bot', 'restart')">🔄 Рестарт контейнера</button>
@@ -876,7 +933,14 @@
             <h2>🏢 Po2Bot (ОСББ Бот Верифікації)</h2>
             <p>Управління ботом реєстрації мешканців та перевірка зв'язку з Google Sheets</p>
         </div>
-        <div class="action-bar">
+        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="toggle-switch-wrapper">
+                <label class="toggle-switch" title="Увімкнути / вимкнути Po2Bot (po2bot)">
+                    <input type="checkbox" id="po2-power-switch" onchange="toggleServiceContainer('po2bot', this, 'po2-status-pill')">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="status-pill up" id="po2-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('po2bot', 'po2-power-switch', 'po2-status-pill')" title="Натисніть для перемикання">Працює</span>
+            </div>
             <button class="btn btn-logs" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
             <button class="btn btn-logs" onclick="openLogModal('Логи Po2Bot', 'po2bot', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('po2bot', 'restart')">🔄 Рестарт бота</button>
@@ -889,7 +953,13 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>🤖</span> Стан сервісу Po2Bot</h3>
-                <span class="status-pill up" id="po2-status-pill">Працює</span>
+                <div class="toggle-switch-wrapper">
+                    <label class="toggle-switch" title="Увімкнути / вимкнути Po2Bot (po2bot)">
+                        <input type="checkbox" id="po2-card-power-switch" onchange="toggleServiceContainer('po2bot', this, 'po2-card-status-pill')">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="status-pill up" id="po2-card-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('po2bot', 'po2-card-power-switch', 'po2-card-status-pill')" title="Натисніть для перемикання">Працює</span>
+                </div>
             </div>
 
             <div class="info-list">
@@ -941,7 +1011,14 @@
             <h2>🎥 Google Meet Streamer</h2>
             <p>Автономний бот для трансляцій та інженерного клубу в Google Meet</p>
         </div>
-        <div class="action-bar">
+        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="toggle-switch-wrapper">
+                <label class="toggle-switch" title="Увімкнути / вимкнути контейнер Meet Streamer (meet-streamer)">
+                    <input type="checkbox" id="meet-container-power-switch" onchange="toggleServiceContainer('meet-streamer', this, 'meet-container-status-pill')">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="status-pill" id="meet-container-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('meet-streamer', 'meet-container-power-switch', 'meet-container-status-pill')" title="Натисніть для перемикання">Опитування...</span>
+            </div>
             <button class="btn btn-logs" onclick="openLogModal('Логи Meet Streamer', 'meet-streamer', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('meet-streamer', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchMeet()">🔄 Оновити</button>
@@ -1436,12 +1513,92 @@ function runContainerAction(name, action) {
         .catch(err => alert(`Помилка: ${err.message}`));
 }
 
+window.toggleServiceContainer = function(containerName, checkboxEl, pillId) {
+    const isChecked = checkboxEl.checked;
+    const action = isChecked ? 'start' : 'stop';
+    const actionUa = isChecked ? 'запустити' : 'зупинити';
+
+    if (!confirm(`Ви дійсно бажаєте ${actionUa} роботу сервісу (${containerName})?`)) {
+        checkboxEl.checked = !isChecked;
+        return;
+    }
+
+    checkboxEl.disabled = true;
+    const pill = pillId ? document.getElementById(pillId) : null;
+    if (pill) {
+        pill.className = 'status-pill warn';
+        pill.textContent = isChecked ? '⏳ Запуск...' : '⏳ Зупинка...';
+    }
+
+    fetch(`/api/container/${containerName}/${action}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            checkboxEl.disabled = false;
+            if (!data.success) {
+                alert(`Помилка під час виконання '${action}' для ${containerName}: ${data.output || 'Невідома помилка'}`);
+                checkboxEl.checked = !isChecked;
+            }
+            refreshServiceStatus(containerName);
+            if (window.fetchMetrics) window.fetchMetrics();
+        })
+        .catch(err => {
+            checkboxEl.disabled = false;
+            checkboxEl.checked = !isChecked;
+            alert(`Помилка запиту: ${err.message}`);
+            refreshServiceStatus(containerName);
+        });
+};
+
+window.toggleServiceContainerByPill = function(containerName, switchId, pillId) {
+    const sw = document.getElementById(switchId);
+    if (sw && !sw.disabled) {
+        sw.checked = !sw.checked;
+        window.toggleServiceContainer(containerName, sw, pillId);
+    }
+};
+
+function refreshServiceStatus(containerName) {
+    if (containerName === 'light-bot') {
+        if (window.fetchLightBot) window.fetchLightBot();
+    } else if (containerName === 'po2bot') {
+        if (window.fetchPo2Bot) window.fetchPo2Bot();
+    } else if (containerName === 'meet-streamer') {
+        if (window.fetchMeet) window.fetchMeet();
+    } else if (containerName === 'syncthing') {
+        if (window.fetchSyncthing) window.fetchSyncthing();
+    } else if (containerName === 'services-bitwarden-1') {
+        if (window.fetchVaultwarden) window.fetchVaultwarden();
+    } else if (['services-moodle-1', 'jobeserver', 'services-roster-1', 'idea_factory'].includes(containerName)) {
+        if (window.fetchSchool) window.fetchSchool();
+    }
+}
+
 // 3. LIGHT BOT
 window.fetchLightBot = function() {
     fetch('/api/light-bot/status')
         .then(r => r.json())
         .then(data => {
+            const isRunning = (data.running !== false && data.container_state !== 'exited' && data.container_state !== 'stopped');
+            const lbSwitch = document.getElementById('lightbot-power-switch');
+            const lbPill = document.getElementById('lightbot-status-pill');
+            if (lbSwitch && !lbSwitch.disabled) lbSwitch.checked = isRunning;
+            if (lbPill) {
+                lbPill.className = isRunning ? 'status-pill up' : 'status-pill down';
+                lbPill.textContent = isRunning ? '🟢 Працює' : '🔴 Зупинено';
+            }
+            const lbBadge = document.getElementById('lightbot-badge');
+            if (lbBadge) {
+                lbBadge.textContent = isRunning ? 'ON' : 'OFF';
+                lbBadge.style.background = isRunning ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+                lbBadge.style.color = isRunning ? '#34d399' : '#f87171';
+            }
+
             const container = document.getElementById('lightbot-locations-container');
+            if (!isRunning) {
+                container.innerHTML = '<div style="color: var(--text-muted); padding: 2rem; text-align: center; background: rgba(15, 23, 42, 0.5); border-radius: 8px; border: 1px dashed var(--border-color); grid-column: 1 / -1;">⏸ Сервіс Light Bot зупинено. Увімкніть перемикач вгорі, щоб запустити контейнер.</div>';
+                return;
+            }
+
             if (!data.success || !data.locations) {
                 container.innerHTML = `<div style="color: #f87171;">Light Bot недоступний: ${data.error || 'помилка'}</div>`;
                 return;
@@ -1560,10 +1717,30 @@ window.fetchPo2Bot = function() {
     fetch('/api/po2bot/status')
         .then(r => r.json())
         .then(data => {
-            const pill = document.getElementById('po2-status-pill');
-            if (data.status === 'running') {
-                pill.className = 'status-pill up';
-                pill.textContent = '🟢 Працює';
+            const isRunning = (data.status === 'running');
+            const po2Switch = document.getElementById('po2-power-switch');
+            const po2CardSwitch = document.getElementById('po2-card-power-switch');
+            const po2Pill = document.getElementById('po2-status-pill');
+            const po2CardPill = document.getElementById('po2-card-status-pill');
+
+            if (po2Switch && !po2Switch.disabled) po2Switch.checked = isRunning;
+            if (po2CardSwitch && !po2CardSwitch.disabled) po2CardSwitch.checked = isRunning;
+
+            [po2Pill, po2CardPill].forEach(pill => {
+                if (pill) {
+                    pill.className = isRunning ? 'status-pill up' : 'status-pill down';
+                    pill.textContent = isRunning ? '🟢 Працює' : '🔴 Зупинено';
+                }
+            });
+
+            const po2Badge = document.getElementById('po2bot-badge');
+            if (po2Badge) {
+                po2Badge.textContent = isRunning ? '8088' : 'OFF';
+                po2Badge.style.background = isRunning ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+                po2Badge.style.color = isRunning ? '#60a5fa' : '#f87171';
+            }
+
+            if (isRunning) {
                 document.getElementById('po2-uptime').textContent = formatUptime(data.uptime_seconds);
                 document.getElementById('po2-sheets').innerHTML = data.google_sheets_connected ? '<span style="color: #34d399;">🟢 Підключено</span>' : '<span style="color: #f87171;">🔴 Помилка</span>';
                 document.getElementById('po2-worksheet').textContent = data.worksheet || '--';
@@ -1600,8 +1777,12 @@ window.fetchPo2Bot = function() {
                 }
                 document.getElementById('po2-pending-count-badge').textContent = `${data.pending_count || 0} очікують`;
             } else {
-                pill.className = 'status-pill down';
-                pill.textContent = '🔴 Зупинено';
+                document.getElementById('po2-uptime').textContent = 'Зупинено';
+                document.getElementById('po2-sheets').innerHTML = '<span style="color: var(--text-dim);">Офлайн</span>';
+                document.getElementById('po2-worksheet').textContent = '--';
+                const oEl = document.getElementById('po2-openai');
+                if (oEl) oEl.innerHTML = '<span style="color: var(--text-dim);">Офлайн</span>';
+                document.getElementById('po2-pending-count-badge').textContent = '0 очікують';
             }
         })
         .catch(console.error);
@@ -1637,6 +1818,21 @@ window.fetchMeet = function() {
     fetch('/api/meet/status')
         .then(r => r.json())
         .then(data => {
+            const contRunning = (data.container_running !== false && data.container_state !== 'exited' && data.container_state !== 'stopped');
+            const contSw = document.getElementById('meet-container-power-switch');
+            const contPill = document.getElementById('meet-container-status-pill');
+            if (contSw && !contSw.disabled) contSw.checked = contRunning;
+            if (contPill) {
+                contPill.className = contRunning ? 'status-pill up' : 'status-pill down';
+                contPill.textContent = contRunning ? '🟢 Працює' : '🔴 Зупинено';
+            }
+            const meetBadge = document.getElementById('meet-badge');
+            if (meetBadge) {
+                meetBadge.textContent = contRunning ? 'Meet' : 'OFF';
+                meetBadge.style.background = contRunning ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+                meetBadge.style.color = contRunning ? '#fbbf24' : '#f87171';
+            }
+
             if (isMeetToggling) return;
             currentMeetInMeeting = !!data.inMeeting;
             const pill = document.getElementById('meet-status-pill');
@@ -2292,6 +2488,8 @@ window.fetchSchool = function() {
             if (!res.success) return;
             // Moodle
             const m = res.moodle;
+            const mSw = document.getElementById('moodle-power-switch');
+            if (mSw && !mSw.disabled) mSw.checked = !!m.online;
             const mPill = document.getElementById('moodle-status-pill');
             if (mPill) {
                 mPill.className = m.online ? 'status-pill up' : 'status-pill down';
@@ -2311,6 +2509,8 @@ window.fetchSchool = function() {
 
             // Jobe
             const j = res.jobe;
+            const jSw = document.getElementById('jobe-power-switch');
+            if (jSw && !jSw.disabled) jSw.checked = !!j.online;
             const jPill = document.getElementById('jobe-status-pill');
             if (jPill) {
                 jPill.className = j.online ? 'status-pill up' : 'status-pill down';
@@ -2325,6 +2525,8 @@ window.fetchSchool = function() {
 
             // Roster
             const r = res.roster;
+            const rSw = document.getElementById('roster-power-switch');
+            if (rSw && !rSw.disabled) rSw.checked = !!r.online;
             const rPill = document.getElementById('roster-status-pill');
             if (rPill) {
                 rPill.className = r.online ? 'status-pill up' : 'status-pill down';
@@ -2335,6 +2537,8 @@ window.fetchSchool = function() {
 
             // Idea Factory
             const i = res.idea_factory;
+            const iSw = document.getElementById('ideas-power-switch');
+            if (iSw && !iSw.disabled) iSw.checked = !!i.online;
             const iPill = document.getElementById('ideas-status-pill');
             if (iPill) {
                 iPill.className = i.online ? 'status-pill up' : 'status-pill down';
@@ -2424,6 +2628,16 @@ window.fetchSyncthing = function() {
                 pill.className = res.online ? 'status-pill up' : 'status-pill down';
                 pill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
             }
+            const topPill = document.getElementById('syncthing-top-status-pill');
+            if (topPill) {
+                topPill.className = res.online ? 'status-pill up' : 'status-pill down';
+                topPill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+            const synSw = document.getElementById('syncthing-power-switch');
+            if (synSw && !synSw.disabled) synSw.checked = !!res.online;
+            const synTopSw = document.getElementById('syncthing-top-power-switch');
+            if (synTopSw && !synTopSw.disabled) synTopSw.checked = !!res.online;
+
             const vz = document.getElementById('syncthing-vault-size');
             if (vz) vz.textContent = res.vault_size || '--';
 
@@ -2463,6 +2677,16 @@ window.fetchVaultwarden = function() {
                 pill.className = res.online ? 'status-pill up' : 'status-pill down';
                 pill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
             }
+            const topPill = document.getElementById('vw-top-status-pill');
+            if (topPill) {
+                topPill.className = res.online ? 'status-pill up' : 'status-pill down';
+                topPill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
+            }
+            const vwSw = document.getElementById('vw-power-switch');
+            if (vwSw && !vwSw.disabled) vwSw.checked = !!res.online;
+            const vwTopSw = document.getElementById('vw-top-power-switch');
+            if (vwTopSw && !vwTopSw.disabled) vwTopSw.checked = !!res.online;
+
             const dbEl = document.getElementById('vw-db-size');
             if (dbEl) dbEl.textContent = res.db_size || '--';
             const bkEl = document.getElementById('vw-last-backup');

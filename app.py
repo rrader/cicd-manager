@@ -694,6 +694,17 @@ def api_container_action(name, action):
     return jsonify(result)
 
 
+@app.route('/api/container/<name>/state')
+@login_required
+def api_container_state(name):
+    """Get current state of arbitrary docker container."""
+    res = run_command(f"docker inspect -f '{{{{.State.Status}}}}' {name}", timeout=3)
+    if not res['success']:
+        return jsonify({'success': False, 'state': 'unknown', 'running': False, 'error': res.get('error')})
+    state = res['output'].strip()
+    return jsonify({'success': True, 'state': state, 'running': (state == 'running')})
+
+
 @app.route('/api/container/<name>/logs')
 @login_required
 def api_container_logs(name):
@@ -711,13 +722,35 @@ def api_container_logs(name):
 @app.route('/api/light-bot/status')
 @login_required
 def api_light_bot_status():
-    """Proxy Light Bot locations status."""
+    """Proxy Light Bot locations status with container state check."""
+    c_res = run_command("docker inspect -f '{{.State.Status}}' light-bot", timeout=3)
+    container_state = c_res['output'].strip() if c_res['success'] else 'unknown'
+    is_running = (container_state == 'running')
+    billing = get_openai_billing()
+
+    if not is_running:
+        return jsonify({
+            'success': True,
+            'running': False,
+            'container_state': container_state,
+            'locations': [],
+            'openai_billing': billing
+        }), 200
+
     token = get_light_bot_token()
     headers = {'Authorization': f'Bearer {token}'}
     status_code, data = http_request(f'{LIGHT_BOT_URL}/locations', headers=headers, timeout=5)
     
     if status_code != 200 or not isinstance(data, dict):
-        return jsonify({'success': False, 'error': f'Light bot unavailable ({status_code})', 'data': data}), 502
+        return jsonify({
+            'success': True,
+            'running': True,
+            'container_state': container_state,
+            'starting': True,
+            'error': f'Light bot стартує ({status_code})',
+            'locations': [],
+            'openai_billing': billing
+        }), 200
     
     locations = data.get('locations', [])
     now = datetime.now(timezone.utc)
@@ -751,8 +784,10 @@ def api_light_bot_status():
 
     return jsonify({
         'success': True,
+        'running': True,
+        'container_state': container_state,
         'locations': locations,
-        'openai_billing': get_openai_billing()
+        'openai_billing': billing
     })
 
 
@@ -1217,16 +1252,38 @@ def api_openai_billing():
 @login_required
 def api_po2bot_status():
     """Proxy Po2Bot status, pending count, and OpenAI billing info."""
-    status_code, data = http_request(f'{PO2BOT_URL}/status', timeout=4)
+    c_res = run_command("docker inspect -f '{{.State.Status}}' po2bot", timeout=3)
+    container_state = c_res['output'].strip() if c_res['success'] else 'unknown'
+    is_running = (container_state == 'running')
     billing = get_openai_billing()
-    if status_code != 200:
-        return jsonify({'success': False, 'status': 'offline', 'error': str(data), 'openai_billing': billing}), 200
+
+    if not is_running:
+        return jsonify({
+            'success': True,
+            'running': False,
+            'container_state': container_state,
+            'status': 'stopped',
+            'uptime_seconds': 0,
+            'google_sheets_connected': False,
+            'openai_billing': billing
+        }), 200
+
+    status_code, data = http_request(f'{PO2BOT_URL}/status', timeout=4)
+    if status_code != 200 or not isinstance(data, dict):
+        return jsonify({
+            'success': True,
+            'running': True,
+            'container_state': container_state,
+            'status': 'starting',
+            'error': str(data),
+            'openai_billing': billing
+        }), 200
     
-    if isinstance(data, dict):
-        data['success'] = True
-        data['openai_billing'] = billing
-        return jsonify(data)
-    return jsonify({'success': False, 'status': 'offline', 'openai_billing': billing})
+    data['success'] = True
+    data['running'] = True
+    data['container_state'] = container_state
+    data['openai_billing'] = billing
+    return jsonify(data)
 
 
 
@@ -1250,14 +1307,33 @@ def api_po2bot_pending():
 @app.route('/api/meet/status')
 @login_required
 def api_meet_status():
-    """Proxy Meet Streamer live call status."""
+    """Proxy Meet Streamer live call status and container state."""
+    c_res = run_command("docker inspect -f '{{.State.Status}}' meet-streamer", timeout=3)
+    container_state = c_res['output'].strip() if c_res['success'] else 'unknown'
+    is_running = (container_state == 'running')
+
+    if not is_running:
+        return jsonify({
+            'success': True,
+            'container_running': False,
+            'container_state': container_state,
+            'inMeeting': False
+        }), 200
+
     status_code, data = http_request(f'{MEET_STREAMER_URL}/status', timeout=4)
-    if status_code != 200:
-        return jsonify({'success': False, 'inMeeting': False, 'error': str(data)}), 200
-    if isinstance(data, dict):
-        data['success'] = True
-        return jsonify(data)
-    return jsonify({'success': False, 'inMeeting': False})
+    if status_code != 200 or not isinstance(data, dict):
+        return jsonify({
+            'success': True,
+            'container_running': True,
+            'container_state': container_state,
+            'inMeeting': False,
+            'error': str(data)
+        }), 200
+
+    data['success'] = True
+    data['container_running'] = True
+    data['container_state'] = container_state
+    return jsonify(data)
 
 
 @app.route('/api/meet/chat', methods=['POST'])
