@@ -2091,6 +2091,18 @@ def docker_up(service):
     return jsonify(result)
 
 
+@app.route('/api/docker-stop/<service>')
+@login_required
+def docker_stop(service):
+    username = session.get('username')
+    if not can_access_service(username, service):
+        return jsonify({'success': False, 'output': 'Access denied to this service'})
+    
+    command = f'{DOCKER_COMPOSE_CMD} -f {COMPOSE_FILE} stop {service}'
+    result = run_command(command)
+    return jsonify(result)
+
+
 @app.route('/api/docker-status/<service>')
 @login_required
 def docker_status(service):

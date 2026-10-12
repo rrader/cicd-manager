@@ -1174,6 +1174,9 @@
                 <button class="btn btn-up" onclick="runComposeAction('{{ service_name }}', 'docker-up')" id="btn-up-{{ service_name }}">
                     ▶️ Up -d
                 </button>
+                <button class="btn btn-danger" style="grid-column: span 2; padding: 0.45rem; font-size: 0.82rem;" onclick="runComposeAction('{{ service_name }}', 'docker-stop')" id="btn-stop-{{ service_name }}">
+                    ⏹️ Зупинити (Stop)
+                </button>
             </div>
             
             <button class="btn btn-status" style="width: 100%;" onclick="runComposeAction('{{ service_name }}', 'docker-status')" id="btn-status-{{ service_name }}">
