@@ -1781,10 +1781,16 @@ def api_school_status():
     # 3. Idea Factory
     idea_online = False
     try:
+        # Check container port 5001 directly; 200 or 429 (rate-limited by flask-limiter) means service is up and responsive
         i_code, _ = http_request('http://idea_factory:5001/', timeout=3)
-        idea_online = (i_code == 200)
+        idea_online = (i_code in (200, 429))
     except Exception:
-        pass
+        try:
+            # Fallback to public domain check
+            i_code, _ = http_request('https://ideas.rmn.pp.ua/', timeout=3)
+            idea_online = (i_code in (200, 429))
+        except Exception:
+            pass
 
     # 4. Moodle HTTP & DB stats
     moodle_online = False

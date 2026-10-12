@@ -2709,6 +2709,52 @@ window.fetchSchool = function() {
         .catch(err => console.error('fetchSchool error:', err));
 };
 
+window.fetchDomains = function() {
+    fetch('/api/domains/status')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.domains) return;
+            const grid = document.getElementById('domains-grid');
+            if (!grid) return;
+            grid.innerHTML = res.domains.map(d => {
+                const isUp = d.online;
+                const statusColor = isUp ? '#34d399' : '#f87171';
+                const pillClass = isUp ? 'status-pill up' : 'status-pill down';
+                const statusText = isUp ? (d.status_code ? `${d.status_code} OK` : 'Online') : 'Down';
+                const latencyText = d.latency_ms ? `${d.latency_ms} ms` : '--';
+
+                return `
+                <div class="service-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div class="service-card-header">
+                            <div class="service-title">
+                                <span>${d.icon}</span>
+                                <span>${d.name}</span>
+                            </div>
+                            <span class="${pillClass}">${statusText}</span>
+                        </div>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0.6rem 0 0.8rem 0;">${d.desc}</p>
+                        <div class="info-list" style="margin-bottom: 0.75rem;">
+                            <div class="info-item">
+                                <span class="info-label">Домен:</span>
+                                <span class="info-val"><a href="${d.url}" target="_blank" style="color: #60a5fa; text-decoration: none;">${d.domain} ↗</a></span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Час відгуку:</span>
+                                <span class="info-val" style="color: ${statusColor}; font-weight: 600;">${latencyText}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <a href="${d.url}" target="_blank" class="btn btn-up" style="width: 100%; text-decoration: none;">Відкрити сервіс ↗</a>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        })
+        .catch(console.error);
+};
+
 window.fetchSyncthing = function() {
     fetch('/api/syncthing/status')
         .then(r => r.json())
