@@ -38,7 +38,27 @@ if os.path.exists(HOST_PROC):
 COMPOSE_FILE = os.environ.get('COMPOSE_FILE', '/services/docker-compose.yml')
 SERVICES_DIR = os.environ.get('SERVICES_DIR', '/services')
 USERS_FILE = os.environ.get('USERS_FILE', '/app/users.json')
-DOCKER_COMPOSE_CMD = os.environ.get('DOCKER_COMPOSE_CMD', 'docker compose')
+def get_docker_compose_cmd():
+    # Check environment variable first
+    if os.environ.get('DOCKER_COMPOSE_CMD'):
+        return os.environ['DOCKER_COMPOSE_CMD']
+    # Check if modern plugin "docker compose" works
+    try:
+        r = subprocess.run('docker compose version', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if r.returncode == 0:
+            return 'docker compose'
+    except Exception:
+        pass
+    # Check if "docker-compose" standalone binary works
+    try:
+        r = subprocess.run('docker-compose version', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if r.returncode == 0:
+            return 'docker-compose'
+    except Exception:
+        pass
+    return 'docker compose'
+
+DOCKER_COMPOSE_CMD = get_docker_compose_cmd()
 
 # Microservice Endpoints
 LIGHT_BOT_URL = os.environ.get('LIGHT_BOT_URL', 'http://light-bot:5000')

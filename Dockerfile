@@ -4,9 +4,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install docker CLI and git
+# Install docker CLI, docker-compose and git
 RUN apt-get update && \
-    apt-get install -y docker.io git && \
+    apt-get install -y docker.io docker-compose git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
