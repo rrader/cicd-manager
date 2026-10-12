@@ -1,6 +1,134 @@
 {% extends "base.html" %}
 
-{% block title %}Дашборд - Monica Service Hub{% endblock %}
+{% block title %}Дашборд - Monica Service Hub<!-- TAB: AI & EXTERNAL SERVICES -->
+<div class="tab-content" id="tab-content-ai" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>🤖 AI & Зовнішні сервіси (OpenAI)</h2>
+            <p>Моніторинг витрат, лімітів токенів та прив'язки проєктів OpenAI до сервісів хомлабу</p>
+        </div>
+        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
+            <span id="ai-cache-indicator" style="font-size: 0.8rem; color: var(--text-dim);">⏱️ Кеш: завантаження...</span>
+            <button class="btn btn-logs" onclick="fetchAIBilling(true)" title="Примусово оновити дані з API OpenAI в обхід кешу">🔄 Оновити</button>
+            <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" class="btn btn-up" style="text-decoration: none;">💳 OpenAI Billing ↗</a>
+        </div>
+    </div>
+
+    <!-- Prominent Shared Key Warning Alert -->
+    <div id="ai-shared-key-alert" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+            <span style="font-size: 1.35rem; line-height: 1;">⚠️</span>
+            <div>
+                <strong style="color: #fbbf24; font-size: 0.95rem;">Увага: Сервіси ділять один спільний API-ключ!</strong>
+                <p style="margin: 0.35rem 0 0 0; font-size: 0.85rem; color: #e2e8f0; line-height: 1.45;" id="ai-shared-key-alert-text">
+                    Виявлено, що сервіси використовують один спільний ключ OpenAI. Їхні запити ділять спільну квоту запитів (Rate Limits / TPM) та баланс організації.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Metrics Cards Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">📦 Проєкт в OpenAI</div>
+            <div style="font-weight: 700; color: #60a5fa; font-size: 1.35rem;" id="ai-tab-project">--</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;" id="ai-tab-keyname">Ключ: --</div>
+        </div>
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">📅 Цей місяць (MTD)</div>
+            <div style="font-weight: 700; color: #34d399; font-size: 1.35rem;" id="ai-tab-month">$0.00</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;" id="ai-tab-org-cost">Орг: $0.00</div>
+        </div>
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">⏱️ Останні 7 днів</div>
+            <div style="font-weight: 700; color: #38bdf8; font-size: 1.35rem;" id="ai-tab-7d">$0.00</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;">Тижнева динаміка</div>
+        </div>
+        <div class="bot-card" style="padding: 1.1rem;">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">🗓️ Останні 30 днів</div>
+            <div style="font-weight: 700; color: #a78bfa; font-size: 1.35rem;" id="ai-tab-30d">$0.00</div>
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;">Сумарно за 30 днів</div>
+        </div>
+    </div>
+
+    <!-- Balance Explanation Box -->
+    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border-color); border-left: 4px solid #60a5fa; border-radius: 8px; padding: 0.9rem 1.25rem; margin-bottom: 1.5rem; font-size: 0.85rem; line-height: 1.45; color: var(--text-muted);">
+        <strong style="color: #fff;">💳 Залишок передоплати на балансі:</strong> OpenAI технічно обмежує зчитування кредитного балансу (credit grants) виключно через сесії браузера на platform.openai.com (повертає HTTP 403 Forbidden для будь-яких API ключів, включно з Admin Key). Точний залишок коштів завжди доступний в особистому кабінеті:
+        <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: 600; margin-left: 0.3rem;">OpenAI Billing Overview ↗</a>
+    </div>
+
+    <!-- Daily Spend Plot Card with Filters -->
+    <div class="bot-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.05rem; color: #fff;">📈 Графік витрат по днях ($ USD)</h3>
+                <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem;" id="ai-chart-subtitle">Показ витрат за обраний період</div>
+            </div>
+
+            <!-- Filters Bar -->
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                <!-- Filter by API Key / Project -->
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <label style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">🔑 Ключ:</label>
+                    <select id="ai-filter-key" onchange="onAIFilterChange()" style="background: #0f172a; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.32rem 0.6rem; border-radius: 6px; font-size: 0.8rem; min-width: 170px; max-width: 250px;">
+                        <option value="all">🌐 Всі ключі організації</option>
+                    </select>
+                </div>
+
+                <!-- Filter by Model -->
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <label style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">🧠 Модель:</label>
+                    <select id="ai-filter-model" onchange="onAIFilterChange()" style="background: #0f172a; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.32rem 0.6rem; border-radius: 6px; font-size: 0.8rem; min-width: 130px; max-width: 180px;">
+                        <option value="all">⚡ Всі моделі</option>
+                    </select>
+                </div>
+
+                <!-- Range Buttons -->
+                <div style="display: flex; gap: 0.25rem;">
+                    <button class="btn btn-sm" id="ai-btn-chart-7d" onclick="setAITabChartRange(7)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">7д</button>
+                    <button class="btn btn-sm" id="ai-btn-chart-14d" onclick="setAITabChartRange(14)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">14д</button>
+                    <button class="btn btn-sm" id="ai-btn-chart-30d" onclick="setAITabChartRange(30)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #6366f1; color: #fff; border: none; cursor: pointer; font-weight: 600;">30д</button>
+                </div>
+
+                <!-- Reset Filter Button -->
+                <button class="btn btn-sm" id="ai-btn-reset-filter" onclick="resetAIFilters()" title="Скинути фільтри до початкового стану" style="display: none; padding: 0.32rem 0.55rem; font-size: 0.78rem; border-radius: 6px; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); cursor: pointer;">✖️ Скинути</button>
+            </div>
+        </div>
+
+        <div id="ai-tab-chart-container" style="width: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+            <span style="color: var(--text-dim);">Завантаження графіка витрат...</span>
+        </div>
+    </div>
+
+    <!-- Connected Services Breakdown Table -->
+    <div class="bot-card" style="padding: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; font-size: 1.05rem; color: #fff;">📋 Сервіси, підключені до OpenAI</h3>
+            <span style="font-size: 0.8rem; color: var(--text-dim);" id="ai-services-count">3 сервіси</span>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                        <th style="padding: 0.6rem 0.8rem;">Сервіс</th>
+                        <th style="padding: 0.6rem 0.8rem;">Призначення</th>
+                        <th style="padding: 0.6rem 0.8rem;">Модель</th>
+                        <th style="padding: 0.6rem 0.8rem;">API-ключ</th>
+                        <th style="padding: 0.6rem 0.8rem;">Проєкт OpenAI</th>
+                        <th style="padding: 0.6rem 0.8rem;">Статус ключа</th>
+                        <th style="padding: 0.6rem 0.8rem; text-align: right;">Дії</th>
+                    </tr>
+                </thead>
+                <tbody id="ai-services-table-body">
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 2rem;">Опитування сервісів...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
 
 {% block extra_style %}
 /* Layout & Cards */
@@ -496,6 +624,46 @@
         </div>
     </div>
 
+    <!-- Monica Historical Charts Panel -->
+    <div class="panel-card" style="margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.15rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>📈</span> Історія навантаження хоста Monica
+                </h3>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Динаміка процесора, оперативної пам'яті та swap файлу</div>
+            </div>
+            <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                <button class="btn btn-sm" id="btn-mrange-1h" onclick="setMonicaRange('1h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">1 год</button>
+                <button class="btn btn-sm" id="btn-mrange-6h" onclick="setMonicaRange('6h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">6 год</button>
+                <button class="btn btn-sm btn-up" id="btn-mrange-24h" onclick="setMonicaRange('24h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">24 год</button>
+                <button class="btn btn-sm" id="btn-mrange-7d" onclick="setMonicaRange('7d')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">7 днів</button>
+                <button class="btn btn-sm" id="btn-mrange-30d" onclick="setMonicaRange('30d')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">30 днів</button>
+            </div>
+        </div>
+        <div style="position: relative; height: 260px; width: 100%;">
+            <canvas id="monicaHistoryChart"></canvas>
+        </div>
+    </div>
+
+    <!-- AI141 GPU Server Quick Banner -->
+    <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(88, 28, 135, 0.28) 100%); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: var(--radius-lg); padding: 1.15rem 1.4rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="font-size: 2.2rem; background: rgba(168, 85, 247, 0.15); width: 54px; height: 54px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(168, 85, 247, 0.4);">🖥️</div>
+            <div>
+                <div style="font-weight: 700; font-size: 1.15rem; color: #fff; display: flex; align-items: center; gap: 0.6rem;">
+                    AI141 GPU Server (Ліцей 141)
+                    <span class="status-pill" id="ai141-home-pill" style="font-size: 0.72rem;">🟢 Онлайн</span>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">2x NVIDIA RTX 5060 Ti • Шкільний сервер LLM, Vision та SLAM</div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <button class="btn btn-up" onclick="switchTab('ai141')">🖥️ Відкрити AI141 Lab ↗</button>
+            <a href="https://gpt.ai141.pp.ua" target="_blank" class="btn btn-logs" style="text-decoration: none;">🤖 OpenWebUI ↗</a>
+        </div>
+    </div>
+
     <!-- Docker Containers Table -->
     <div class="panel-card">
         <h3>🐳 Активні Docker контейнери</h3>
@@ -540,6 +708,114 @@
     </div>
 </div>
 
+<!-- TAB: AI141 GPU LAB -->
+<div class="tab-content" id="tab-content-ai141" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>🖥️ AI141 GPU Server & AI Lab (Ліцей 141)</h2>
+            <p>Моніторинг шкільного сервера LLM інференсу (2x NVIDIA GeForce RTX 5060 Ti, OpenWebUI, Fooocus, Ollama)</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="fetchSchool()">🔄 Оновити стан</button>
+            <a href="https://ai141.pp.ua" target="_blank" class="btn btn-up">🌐 Портал ai141.pp.ua ↗</a>
+            <a href="https://gpt.ai141.pp.ua" target="_blank" class="btn btn-up">🤖 OpenWebUI ↗</a>
+        </div>
+    </div>
+
+    <div class="cards-row">
+        <!-- AI141 Dedicated Card -->
+        <div class="bot-card" style="grid-column: span 2; border: 1px solid rgba(168, 85, 247, 0.4);">
+            <div class="bot-card-header">
+                <h3><span>🖥️</span> Апаратні ресурси та стан GPU (ai141.pp.ua)</h3>
+                <span class="status-pill" id="ai141-tab-status-pill">Опитування...</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.2rem 0;">
+                <div style="background: rgba(15, 23, 42, 0.7); padding: 1.1rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">GPU 0 • RTX 5060 Ti (16 GB)</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #c084fc; margin-top: 0.3rem;" id="ai141-tab-gpu0-mem">--</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;" id="ai141-tab-gpu0-meta">16311 MB Total</div>
+                </div>
+
+                <div style="background: rgba(15, 23, 42, 0.7); padding: 1.1rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">GPU 1 • RTX 5060 Ti (16 GB)</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #a855f7; margin-top: 0.3rem;" id="ai141-tab-gpu1-mem">--</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;" id="ai141-tab-gpu1-meta">16311 MB Total</div>
+                </div>
+
+                <div style="background: rgba(15, 23, 42, 0.7); padding: 1.1rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Процесор та RAM Хоста</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #38bdf8; margin-top: 0.3rem;" id="ai141-tab-cpu-ram">--</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;" id="ai141-tab-cpu-ram-meta">64 GB RAM</div>
+                </div>
+
+                <div style="background: rgba(15, 23, 42, 0.7); padding: 1.1rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase;">Статус AI Сервісів</div>
+                    <div style="font-size: 1.6rem; font-weight: 700; color: #34d399; margin-top: 0.3rem;" id="ai141-tab-services-count">--</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">systemd & docker</div>
+                </div>
+            </div>
+
+            <div style="margin: 1.25rem 0;">
+                <div style="font-size: 0.82rem; color: var(--text-dim); margin-bottom: 0.5rem; text-transform: uppercase;">Шкільні платформи та точки входу:</div>
+                <div id="ai141-tab-services-pills" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <!-- Dynamic services pills -->
+                </div>
+            </div>
+
+            <!-- AI141 Historical Telemetry Charts -->
+            <div style="margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <h4 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                            <span>📊</span> Історія GPU VRAM, температури та завантаження (RTX 5060 Ti)
+                        </h4>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Історичні дані використання відеопам'яті обох карт та навантаження</div>
+                    </div>
+                    <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <button class="btn btn-sm" id="btn-airange-1h" onclick="setAI141Range('1h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">1 год</button>
+                        <button class="btn btn-sm" id="btn-airange-6h" onclick="setAI141Range('6h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">6 год</button>
+                        <button class="btn btn-sm btn-up" id="btn-airange-24h" onclick="setAI141Range('24h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">24 год</button>
+                        <button class="btn btn-sm" id="btn-airange-7d" onclick="setAI141Range('7d')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">7 днів</button>
+                        <button class="btn btn-sm" id="btn-airange-30d" onclick="setAI141Range('30d')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">30 днів</button>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.25rem;">
+                    <!-- GPU VRAM -->
+                    <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #c084fc; margin-bottom: 0.75rem;">🎮 Заповнення VRAM (GPU 0 vs GPU 1, %)</div>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="ai141GpuMemChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- GPU Temp -->
+                    <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem; border-radius: 10px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #f97316; margin-bottom: 0.75rem;">🌡️ Температура GPU (°C)</div>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="ai141GpuTempChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Host CPU & RAM -->
+                    <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem; border-radius: 10px; border: 1px solid var(--border-color); grid-column: span 2;">
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; margin-bottom: 0.75rem;">⚡ Навантаження хоста AI141 (CPU & RAM, %)</div>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="ai141CpuRamChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-bar" style="margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.6rem;">
+                <a href="https://gpt.ai141.pp.ua" target="_blank" class="btn btn-up" style="text-decoration: none;">🤖 OpenWebUI ↗</a>
+                <a href="https://fooocus.ai141.pp.ua" target="_blank" class="btn btn-logs" style="text-decoration: none;">🎨 Fooocus ↗</a>
+                <a href="https://slam.ai141.pp.ua" target="_blank" class="btn btn-logs" style="text-decoration: none;">📐 DA3 SLAM ↗</a>
+                <a href="https://admin.ai141.pp.ua" target="_blank" class="btn btn-logs" style="text-decoration: none;">🛠️ Admin Dashboard ↗</a>
+                <a href="https://auth.ai141.pp.ua" target="_blank" class="btn btn-logs" style="text-decoration: none;">🔐 Authelia Portal ↗</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- TAB: SCHOOL (MOODLE, JOBE, ROSTER, IDEA FACTORY) -->
 <div class="tab-content" id="tab-content-school" style="display: none;">
     <div class="section-header">
@@ -558,13 +834,7 @@
         <div class="bot-card" style="grid-column: span 2;">
             <div class="bot-card-header">
                 <h3><span>🎓</span> Moodle LMS (moodle.rmn.pp.ua)</h3>
-                <div class="toggle-switch-wrapper">
-                    <label class="toggle-switch" title="Увімкнути / вимкнути Moodle (services-moodle-1)">
-                        <input type="checkbox" id="moodle-power-switch" onchange="toggleServiceContainer('services-moodle-1', this, 'moodle-status-pill')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="status-pill" id="moodle-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-moodle-1', 'moodle-power-switch', 'moodle-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-                </div>
+                <span class="status-pill" id="moodle-status-pill">Опитування...</span>
             </div>
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
@@ -597,13 +867,7 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>⚡</span> Jobe Code Runner (CodeRunner)</h3>
-                <div class="toggle-switch-wrapper">
-                    <label class="toggle-switch" title="Увімкнути / вимкнути Jobe (jobeserver)">
-                        <input type="checkbox" id="jobe-power-switch" onchange="toggleServiceContainer('jobeserver', this, 'jobe-status-pill')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="status-pill" id="jobe-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('jobeserver', 'jobe-power-switch', 'jobe-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-                </div>
+                <span class="status-pill" id="jobe-status-pill">Опитування...</span>
             </div>
 
             <div class="info-list">
@@ -638,13 +902,7 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>📋</span> Students Roster (Списки учнів)</h3>
-                <div class="toggle-switch-wrapper">
-                    <label class="toggle-switch" title="Увімкнути / вимкнути Students Roster (services-roster-1)">
-                        <input type="checkbox" id="roster-power-switch" onchange="toggleServiceContainer('services-roster-1', this, 'roster-status-pill')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="status-pill" id="roster-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-roster-1', 'roster-power-switch', 'roster-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-                </div>
+                <span class="status-pill" id="roster-status-pill">Опитування...</span>
             </div>
 
             <div class="info-list">
@@ -672,13 +930,7 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>💡</span> Idea Factory (Фабрика ідей)</h3>
-                <div class="toggle-switch-wrapper">
-                    <label class="toggle-switch" title="Увімкнути / вимкнути Idea Factory (idea_factory)">
-                        <input type="checkbox" id="ideas-power-switch" onchange="toggleServiceContainer('idea_factory', this, 'ideas-status-pill')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="status-pill" id="ideas-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('idea_factory', 'ideas-power-switch', 'ideas-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-                </div>
+                <span class="status-pill" id="ideas-status-pill">Опитування...</span>
             </div>
 
             <div class="info-list">
@@ -690,16 +942,54 @@
                     <span class="info-label">Контейнер:</span>
                     <span class="info-val">idea_factory (порт 5001)</span>
                 </div>
-                <div class="info-item">
-                    <span class="info-label">OpenAI API:</span>
-                    <span class="info-val" id="ideas-openai">--</span>
-                </div>
             </div>
 
             <div class="action-bar" style="margin-top: 1.25rem;">
                 <a href="https://ideas.rmn.pp.ua" target="_blank" class="btn btn-up btn-sm" style="text-decoration: none;">Перейти в Idea Factory ↗</a>
-                <button class="btn btn-logs btn-sm" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
                 <button class="btn btn-logs btn-sm" onclick="openLogModal('Логи Idea Factory', 'idea_factory', 'container')">📋 Логи</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- School Storage Historical Charts -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+        <!-- Moodle Volume Chart -->
+        <div class="panel-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📈</span> Об'єм даних Moodle (/bitnami/moodledata)
+                    </h3>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Динаміка об'єму сховища moodledata (MB)</div>
+                </div>
+                <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <button class="btn btn-sm btn-up" id="btn-school-range-24h" onclick="setSchoolStorageRange('24h')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">24 год</button>
+                    <button class="btn btn-sm" id="btn-school-range-7d" onclick="setSchoolStorageRange('7d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">7 днів</button>
+                    <button class="btn btn-sm" id="btn-school-range-30d" onclick="setSchoolStorageRange('30d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">30 днів</button>
+                </div>
+            </div>
+            <div style="position: relative; height: 230px; width: 100%;">
+                <canvas id="moodleVolumeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Roster DB Size Chart -->
+        <div class="panel-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📈</span> Розмір бази учнів (db.sqlite3)
+                    </h3>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Динаміка бази списків учнів Roster (MB)</div>
+                </div>
+                <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <button class="btn btn-sm btn-up" id="btn-school-r-range-24h" onclick="setSchoolStorageRange('24h')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">24 год</button>
+                    <button class="btn btn-sm" id="btn-school-r-range-7d" onclick="setSchoolStorageRange('7d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">7 днів</button>
+                    <button class="btn btn-sm" id="btn-school-r-range-30d" onclick="setSchoolStorageRange('30d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">30 днів</button>
+                </div>
+            </div>
+            <div style="position: relative; height: 230px; width: 100%;">
+                <canvas id="rosterDbChart"></canvas>
             </div>
         </div>
     </div>
@@ -712,14 +1002,7 @@
             <h2>🔄 Syncthing & Obsidian Sync</h2>
             <p>Синхронізація сховища нотаток obsidian-vault-personal та контроль конфліктів</p>
         </div>
-        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
-            <div class="toggle-switch-wrapper">
-                <label class="toggle-switch" title="Увімкнути / вимкнути Syncthing (syncthing)">
-                    <input type="checkbox" id="syncthing-top-power-switch" onchange="toggleServiceContainer('syncthing', this, 'syncthing-status-pill')">
-                    <span class="toggle-slider"></span>
-                </label>
-                <span class="status-pill" id="syncthing-top-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('syncthing', 'syncthing-top-power-switch', 'syncthing-top-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-            </div>
+        <div class="action-bar">
             <button class="btn btn-logs" onclick="openLogModal('Логи Syncthing', 'syncthing', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('syncthing', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchSyncthing()">🔄 Оновити</button>
@@ -732,13 +1015,7 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>🔄</span> Стан демона Syncthing</h3>
-                <div class="toggle-switch-wrapper">
-                    <label class="toggle-switch" title="Увімкнути / вимкнути Syncthing (syncthing)">
-                        <input type="checkbox" id="syncthing-power-switch" onchange="toggleServiceContainer('syncthing', this, 'syncthing-status-pill')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="status-pill" id="syncthing-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('syncthing', 'syncthing-power-switch', 'syncthing-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-                </div>
+                <span class="status-pill" id="syncthing-status-pill">Опитування...</span>
             </div>
 
             <div class="info-list">
@@ -769,6 +1046,49 @@
             </div>
         </div>
     </div>
+
+    <!-- Syncthing & Obsidian Historical Charts -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+        <!-- Obsidian Size Chart -->
+        <div class="panel-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📈</span> Розмір Obsidian сховища
+                    </h3>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Динаміка об'єму сховища (MB)</div>
+                </div>
+                <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <button class="btn btn-sm btn-up" id="btn-sync-range-24h" onclick="setSyncRange('24h')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">24 год</button>
+                    <button class="btn btn-sm" id="btn-sync-range-7d" onclick="setSyncRange('7d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">7 днів</button>
+                    <button class="btn btn-sm" id="btn-sync-range-30d" onclick="setSyncRange('30d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">30 днів</button>
+                </div>
+            </div>
+            <div style="position: relative; height: 230px; width: 100%;">
+                <canvas id="obsidianSizeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Sync Conflicts Chart -->
+        <div class="panel-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>⚠️</span> Конфлікти синхронізації
+                    </h3>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Кількість файлів *.sync-conflict-*</div>
+                </div>
+                <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <button class="btn btn-sm btn-up" id="btn-sync-c-range-24h" onclick="setSyncRange('24h')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">24 год</button>
+                    <button class="btn btn-sm" id="btn-sync-c-range-7d" onclick="setSyncRange('7d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">7 днів</button>
+                    <button class="btn btn-sm" id="btn-sync-c-range-30d" onclick="setSyncRange('30d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">30 днів</button>
+                </div>
+            </div>
+            <div style="position: relative; height: 230px; width: 100%;">
+                <canvas id="obsidianConflictsChart"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- TAB: VAULTWARDEN (BITWARDEN) -->
@@ -778,14 +1098,7 @@
             <h2>🔐 Vaultwarden (Bitwarden)</h2>
             <p>Менеджер паролів bitwarden.rmn.pp.ua, стан бази SQLite та резервні копії</p>
         </div>
-        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
-            <div class="toggle-switch-wrapper">
-                <label class="toggle-switch" title="Увімкнути / вимкнути Vaultwarden (services-bitwarden-1)">
-                    <input type="checkbox" id="vw-top-power-switch" onchange="toggleServiceContainer('services-bitwarden-1', this, 'vw-status-pill')">
-                    <span class="toggle-slider"></span>
-                </label>
-                <span class="status-pill" id="vw-top-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-bitwarden-1', 'vw-top-power-switch', 'vw-top-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-            </div>
+        <div class="action-bar">
             <button class="btn btn-logs" onclick="openLogModal('Логи Bitwarden', 'services-bitwarden-1', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('services-bitwarden-1', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchVaultwarden()">🔄 Оновити</button>
@@ -798,13 +1111,7 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>🔐</span> Стан сервера Vaultwarden</h3>
-                <div class="toggle-switch-wrapper">
-                    <label class="toggle-switch" title="Увімкнути / вимкнути Vaultwarden (services-bitwarden-1)">
-                        <input type="checkbox" id="vw-power-switch" onchange="toggleServiceContainer('services-bitwarden-1', this, 'vw-status-pill')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="status-pill" id="vw-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('services-bitwarden-1', 'vw-power-switch', 'vw-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-                </div>
+                <span class="status-pill" id="vw-status-pill">Опитування...</span>
             </div>
 
             <div class="info-list">
@@ -840,6 +1147,117 @@
                     <span class="info-val" id="vw-last-backup">--</span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Vaultwarden DB Size Chart -->
+    <div class="panel-card" style="margin-top: 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>📈</span> Розмір бази Vaultwarden (db.sqlite3)
+                </h3>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Динаміка розміру SQLite бази паролів (MB)</div>
+            </div>
+            <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                <button class="btn btn-sm btn-up" id="btn-vw-range-24h" onclick="setVWRange('24h')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">24 год</button>
+                <button class="btn btn-sm" id="btn-vw-range-7d" onclick="setVWRange('7d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">7 днів</button>
+                <button class="btn btn-sm" id="btn-vw-range-30d" onclick="setVWRange('30d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">30 днів</button>
+            </div>
+        </div>
+        <div style="position: relative; height: 230px; width: 100%;">
+            <canvas id="vaultwardenDbChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- TAB: CI/CD MANAGER (STATUS & METRICS DB) -->
+<div class="tab-content" id="tab-content-cicd" style="display: none;">
+    <div class="section-header">
+        <div>
+            <h2>⚙️ CI/CD Manager & Metrics History Engine</h2>
+            <p>Стан панелі керування, сховище історичних часових рядів (SQLite WAL) та політика ротації даних</p>
+        </div>
+        <div class="action-bar">
+            <button class="btn btn-logs" onclick="fetchCICD()">🔄 Оновити</button>
+            <button class="btn btn-logs" onclick="openLogModal('Логи CI/CD Manager', 'cicd-manager', 'container')">📋 Логи</button>
+            <button class="btn btn-restart" onclick="runContainerAction('cicd-manager', 'restart')">🔄 Рестарт сервісу</button>
+        </div>
+    </div>
+
+    <div class="cards-row">
+        <!-- CI/CD Daemon Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>⚙️</span> Сервіс CI/CD Manager</h3>
+                <span class="status-pill up">🟢 Працює</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Web UI:</span>
+                    <span class="info-val"><a href="https://cicd.rmn.pp.ua" target="_blank" style="color: #60a5fa; text-decoration: none;">cicd.rmn.pp.ua ↗</a></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Контейнер:</span>
+                    <span class="info-val">cicd-manager (Flask + Python 3.11)</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Розмір бази метрик:</span>
+                    <span class="info-val" id="cicd-db-size-val" style="font-weight: 700; color: #a855f7;">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Шлях бази даних:</span>
+                    <span class="info-val">/services/cicd-manager/metrics_history.db</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Retention Policy Card -->
+        <div class="bot-card">
+            <div class="bot-card-header">
+                <h3><span>⏱️</span> Політика збереження та ротації</h3>
+                <span class="status-pill up">Downsampled</span>
+            </div>
+
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-label">Детальні дані (Raw):</span>
+                    <span class="info-val" style="color: #38bdf8;">30 сек / 5 хв • Зберігаються 24 години</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Годинні агрегати (Hourly):</span>
+                    <span class="info-val" style="color: #34d399;">Середнє, min, max • Зберігаються 30 днів</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Добові агрегати (Daily):</span>
+                    <span class="info-val" style="color: #fbbf24;">Середнє, min, max • Зберігаються 365 днів</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Режим SQLite:</span>
+                    <span class="info-val">WAL (Write-Ahead Logging) + Normal Sync</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CI/CD Metrics DB Historical Chart -->
+    <div class="panel-card" style="margin-top: 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>📈</span> Розмір бази історичних метрик (metrics_history.db)
+                </h3>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Динаміка розміру бази даних метрик на диску (MB)</div>
+            </div>
+            <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                <button class="btn btn-sm btn-up" id="btn-cicd-range-24h" onclick="setCICDRange('24h')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">24 год</button>
+                <button class="btn btn-sm" id="btn-cicd-range-7d" onclick="setCICDRange('7d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">7 днів</button>
+                <button class="btn btn-sm" id="btn-cicd-range-30d" onclick="setCICDRange('30d')" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">30 днів</button>
+            </div>
+        </div>
+        <div style="position: relative; height: 240px; width: 100%;">
+            <canvas id="cicdMetricsDbChart"></canvas>
         </div>
     </div>
 </div>
@@ -901,15 +1319,7 @@
             <h2>💡 Light Bot (Моніторинг відключень світла)</h2>
             <p>Синхронізація фактичного живлення з графіками Ясно/ВОЕ та каналами сповіщень</p>
         </div>
-        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
-            <div class="toggle-switch-wrapper">
-                <label class="toggle-switch" title="Увімкнути / вимкнути Light Bot (light-bot)">
-                    <input type="checkbox" id="lightbot-power-switch" onchange="toggleServiceContainer('light-bot', this, 'lightbot-status-pill')">
-                    <span class="toggle-slider"></span>
-                </label>
-                <span class="status-pill" id="lightbot-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('light-bot', 'lightbot-power-switch', 'lightbot-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-            </div>
-            <button class="btn btn-logs" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
+        <div class="action-bar">
             <button class="btn btn-logs" onclick="openLogModal('Логи Light Bot', 'light-bot', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('light-bot', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchLightBot()">🔄 Оновити</button>
@@ -933,15 +1343,7 @@
             <h2>🏢 Po2Bot (ОСББ Бот Верифікації)</h2>
             <p>Управління ботом реєстрації мешканців та перевірка зв'язку з Google Sheets</p>
         </div>
-        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
-            <div class="toggle-switch-wrapper">
-                <label class="toggle-switch" title="Увімкнути / вимкнути Po2Bot (po2bot)">
-                    <input type="checkbox" id="po2-power-switch" onchange="toggleServiceContainer('po2bot', this, 'po2-status-pill')">
-                    <span class="toggle-slider"></span>
-                </label>
-                <span class="status-pill up" id="po2-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('po2bot', 'po2-power-switch', 'po2-status-pill')" title="Натисніть для перемикання">Працює</span>
-            </div>
-            <button class="btn btn-logs" onclick="openOpenAICostsModal()">📊 Витрати OpenAI</button>
+        <div class="action-bar">
             <button class="btn btn-logs" onclick="openLogModal('Логи Po2Bot', 'po2bot', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('po2bot', 'restart')">🔄 Рестарт бота</button>
             <button class="btn btn-logs" onclick="fetchPo2Bot()">🔄 Оновити</button>
@@ -953,13 +1355,7 @@
         <div class="bot-card">
             <div class="bot-card-header">
                 <h3><span>🤖</span> Стан сервісу Po2Bot</h3>
-                <div class="toggle-switch-wrapper">
-                    <label class="toggle-switch" title="Увімкнути / вимкнути Po2Bot (po2bot)">
-                        <input type="checkbox" id="po2-card-power-switch" onchange="toggleServiceContainer('po2bot', this, 'po2-card-status-pill')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="status-pill up" id="po2-card-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('po2bot', 'po2-card-power-switch', 'po2-card-status-pill')" title="Натисніть для перемикання">Працює</span>
-                </div>
+                <span class="status-pill up" id="po2-status-pill">Працює</span>
             </div>
 
             <div class="info-list">
@@ -1011,14 +1407,7 @@
             <h2>🎥 Google Meet Streamer</h2>
             <p>Автономний бот для трансляцій та інженерного клубу в Google Meet</p>
         </div>
-        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
-            <div class="toggle-switch-wrapper">
-                <label class="toggle-switch" title="Увімкнути / вимкнути контейнер Meet Streamer (meet-streamer)">
-                    <input type="checkbox" id="meet-container-power-switch" onchange="toggleServiceContainer('meet-streamer', this, 'meet-container-status-pill')">
-                    <span class="toggle-slider"></span>
-                </label>
-                <span class="status-pill" id="meet-container-status-pill" style="cursor: pointer;" onclick="toggleServiceContainerByPill('meet-streamer', 'meet-container-power-switch', 'meet-container-status-pill')" title="Натисніть для перемикання">Опитування...</span>
-            </div>
+        <div class="action-bar">
             <button class="btn btn-logs" onclick="openLogModal('Логи Meet Streamer', 'meet-streamer', 'container')">📋 Логи</button>
             <button class="btn btn-restart" onclick="runContainerAction('meet-streamer', 'restart')">🔄 Рестарт контейнера</button>
             <button class="btn btn-logs" onclick="fetchMeet()">🔄 Оновити</button>
@@ -1136,18 +1525,8 @@
                 <button class="btn btn-up btn-sm" onclick="triggerAirAlertClear()" id="btn-alert-clear" title="Оголосити відбій тривоги">🟢 Відбій</button>
                 <button class="btn btn-logs btn-sm" onclick="resetAirAlertAuto()" id="btn-alert-auto" title="Скинути до авторежиму (Київ Цифровий)">🔄 Авто</button>
                 <button class="btn btn-logs btn-sm" onclick="resetAirAlertBanner()" id="btn-alert-reset-banner" title="Прибрати плашку тривоги зі стріму">🖼 Скинути плашку</button>
-            </div>
-
-            <!-- Тестування аудіосповіщень у Meet -->
-            <div style="margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px dashed var(--border-color);">
-                <div style="font-size: 0.8rem; font-weight: 600; color: #94a3b8; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.35rem;">
-                    <span>🎧</span> Тестування звуків у Meet (unmute &rarr; play &rarr; mute):
-                </div>
-                <div class="action-bar" style="flex-wrap: wrap; gap: 0.4rem;">
-                    <button class="btn btn-sm" onclick="testAlarmAudio('on')" style="background: #6366f1; color: white; border-color: #4f46e5; font-weight: 500;" title="Протестувати звук сигналу тривоги (unmute -> alarm-on -> mute)">🔊 Звук тривоги</button>
-                    <button class="btn btn-sm" onclick="testAlarmAudio('off')" style="background: #0284c7; color: white; border-color: #0369a1; font-weight: 500;" title="Протестувати звук відбою (unmute -> alarm-off -> mute)">🔉 Звук відбою</button>
-                    <button class="btn btn-sm" onclick="testAlarmAudio('resume')" style="background: #059669; color: white; border-color: #047857; font-weight: 500;" title="Протестувати звук відновлення навчання (unmute -> alarm-resume -> mute)">🔔 Продовження навчання</button>
-                </div>
+                <button class="btn btn-sm" onclick="testAlarmAudio('on')" style="background: #475569; color: white; border-color: #64748b;" title="Протестувати звук сигналу тривоги (unmute -> alarm-on -> mute)">🔊 Звук тривоги</button>
+                <button class="btn btn-sm" onclick="testAlarmAudio('off')" style="background: #475569; color: white; border-color: #64748b;" title="Протестувати звук відбою (unmute -> alarm-off -> mute)">🔉 Звук відбою</button>
             </div>
         </div>
     </div>
@@ -1240,134 +1619,6 @@
                     <p style="font-size: 0.88rem;">Натисніть «👁 Переглянути», щоб побачити реальний вигляд заставки</p>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- TAB: AI & EXTERNAL SERVICES -->
-<div class="tab-content" id="tab-content-ai" style="display: none;">
-    <div class="section-header">
-        <div>
-            <h2>🤖 AI & Зовнішні сервіси (OpenAI)</h2>
-            <p>Моніторинг витрат, лімітів токенів та прив'язки проєктів OpenAI до сервісів хомлабу</p>
-        </div>
-        <div class="action-bar" style="display: flex; align-items: center; gap: 0.75rem;">
-            <span id="ai-cache-indicator" style="font-size: 0.8rem; color: var(--text-dim);">⏱️ Кеш: завантаження...</span>
-            <button class="btn btn-logs" onclick="fetchAIBilling(true)" title="Примусово оновити дані з API OpenAI в обхід кешу">🔄 Оновити</button>
-            <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" class="btn btn-up" style="text-decoration: none;">💳 OpenAI Billing ↗</a>
-        </div>
-    </div>
-
-    <!-- Prominent Shared Key Warning Alert -->
-    <div id="ai-shared-key-alert" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
-        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
-            <span style="font-size: 1.35rem; line-height: 1;">⚠️</span>
-            <div>
-                <strong style="color: #fbbf24; font-size: 0.95rem;">Увага: Сервіси ділять один спільний API-ключ!</strong>
-                <p style="margin: 0.35rem 0 0 0; font-size: 0.85rem; color: #e2e8f0; line-height: 1.45;" id="ai-shared-key-alert-text">
-                    Виявлено, що сервіси використовують один спільний ключ OpenAI. Їхні запити ділять спільну квоту запитів (Rate Limits / TPM) та баланс організації.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Summary Metrics Cards Grid -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-        <div class="bot-card" style="padding: 1.1rem;">
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">📦 Проєкт в OpenAI</div>
-            <div style="font-weight: 700; color: #60a5fa; font-size: 1.35rem;" id="ai-tab-project">--</div>
-            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;" id="ai-tab-keyname">Ключ: --</div>
-        </div>
-        <div class="bot-card" style="padding: 1.1rem;">
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">📅 Цей місяць (MTD)</div>
-            <div style="font-weight: 700; color: #34d399; font-size: 1.35rem;" id="ai-tab-month">$0.00</div>
-            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;" id="ai-tab-org-cost">Орг: $0.00</div>
-        </div>
-        <div class="bot-card" style="padding: 1.1rem;">
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">⏱️ Останні 7 днів</div>
-            <div style="font-weight: 700; color: #38bdf8; font-size: 1.35rem;" id="ai-tab-7d">$0.00</div>
-            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;">Тижнева динаміка</div>
-        </div>
-        <div class="bot-card" style="padding: 1.1rem;">
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600;">🗓️ Останні 30 днів</div>
-            <div style="font-weight: 700; color: #a78bfa; font-size: 1.35rem;" id="ai-tab-30d">$0.00</div>
-            <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;">Сумарно за 30 днів</div>
-        </div>
-    </div>
-
-    <!-- Balance Explanation Box -->
-    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid var(--border-color); border-left: 4px solid #60a5fa; border-radius: 8px; padding: 0.9rem 1.25rem; margin-bottom: 1.5rem; font-size: 0.85rem; line-height: 1.45; color: var(--text-muted);">
-        <strong style="color: #fff;">💳 Залишок передоплати на балансі:</strong> OpenAI технічно обмежує зчитування кредитного балансу (credit grants) виключно через сесії браузера на platform.openai.com (повертає HTTP 403 Forbidden для будь-яких API ключів, включно з Admin Key). Точний залишок коштів завжди доступний в особистому кабінеті:
-        <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: 600; margin-left: 0.3rem;">OpenAI Billing Overview ↗</a>
-    </div>
-
-    <!-- Daily Spend Plot Card with Filters -->
-    <div class="bot-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
-            <div>
-                <h3 style="margin: 0; font-size: 1.05rem; color: #fff;">📈 Графік витрат по днях ($ USD)</h3>
-                <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.2rem;" id="ai-chart-subtitle">Показ витрат за обраний період</div>
-            </div>
-
-            <!-- Filters Bar -->
-            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-                <!-- Filter by API Key / Project -->
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <label style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">🔑 Ключ:</label>
-                    <select id="ai-filter-key" onchange="onAIFilterChange()" style="background: #0f172a; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.32rem 0.6rem; border-radius: 6px; font-size: 0.8rem; min-width: 170px; max-width: 250px;">
-                        <option value="all">🌐 Всі ключі організації</option>
-                    </select>
-                </div>
-
-                <!-- Filter by Model -->
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <label style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">🧠 Модель:</label>
-                    <select id="ai-filter-model" onchange="onAIFilterChange()" style="background: #0f172a; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.32rem 0.6rem; border-radius: 6px; font-size: 0.8rem; min-width: 130px; max-width: 180px;">
-                        <option value="all">⚡ Всі моделі</option>
-                    </select>
-                </div>
-
-                <!-- Range Buttons -->
-                <div style="display: flex; gap: 0.25rem;">
-                    <button class="btn btn-sm" id="ai-btn-chart-7d" onclick="setAITabChartRange(7)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">7д</button>
-                    <button class="btn btn-sm" id="ai-btn-chart-14d" onclick="setAITabChartRange(14)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #334155; color: #fff; border: none; cursor: pointer;">14д</button>
-                    <button class="btn btn-sm" id="ai-btn-chart-30d" onclick="setAITabChartRange(30)" style="padding: 0.32rem 0.65rem; font-size: 0.78rem; border-radius: 6px; background: #6366f1; color: #fff; border: none; cursor: pointer; font-weight: 600;">30д</button>
-                </div>
-
-                <!-- Reset Filter Button -->
-                <button class="btn btn-sm" id="ai-btn-reset-filter" onclick="resetAIFilters()" title="Скинути фільтри до початкового стану" style="display: none; padding: 0.32rem 0.55rem; font-size: 0.78rem; border-radius: 6px; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); cursor: pointer;">✖️ Скинути</button>
-            </div>
-        </div>
-
-        <div id="ai-tab-chart-container" style="width: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center;">
-            <span style="color: var(--text-dim);">Завантаження графіка витрат...</span>
-        </div>
-    </div>
-
-    <!-- Connected Services Breakdown Table -->
-    <div class="bot-card" style="padding: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 style="margin: 0; font-size: 1.05rem; color: #fff;">📋 Сервіси, підключені до OpenAI</h3>
-            <span style="font-size: 0.8rem; color: var(--text-dim);" id="ai-services-count">3 сервіси</span>
-        </div>
-
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
-                <thead>
-                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
-                        <th style="padding: 0.6rem 0.8rem;">Сервіс</th>
-                        <th style="padding: 0.6rem 0.8rem;">Призначення</th>
-                        <th style="padding: 0.6rem 0.8rem;">Модель</th>
-                        <th style="padding: 0.6rem 0.8rem;">API-ключ</th>
-                        <th style="padding: 0.6rem 0.8rem;">Проєкт OpenAI</th>
-                        <th style="padding: 0.6rem 0.8rem;">Статус ключа</th>
-                        <th style="padding: 0.6rem 0.8rem; text-align: right;">Дії</th>
-                    </tr>
-                </thead>
-                <tbody id="ai-services-table-body">
-                    <tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 2rem;">Опитування сервісів...</td></tr>
-                </tbody>
-            </table>
         </div>
     </div>
 </div>
@@ -1513,92 +1764,12 @@ function runContainerAction(name, action) {
         .catch(err => alert(`Помилка: ${err.message}`));
 }
 
-window.toggleServiceContainer = function(containerName, checkboxEl, pillId) {
-    const isChecked = checkboxEl.checked;
-    const action = isChecked ? 'start' : 'stop';
-    const actionUa = isChecked ? 'запустити' : 'зупинити';
-
-    if (!confirm(`Ви дійсно бажаєте ${actionUa} роботу сервісу (${containerName})?`)) {
-        checkboxEl.checked = !isChecked;
-        return;
-    }
-
-    checkboxEl.disabled = true;
-    const pill = pillId ? document.getElementById(pillId) : null;
-    if (pill) {
-        pill.className = 'status-pill warn';
-        pill.textContent = isChecked ? '⏳ Запуск...' : '⏳ Зупинка...';
-    }
-
-    fetch(`/api/container/${containerName}/${action}`, { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            checkboxEl.disabled = false;
-            if (!data.success) {
-                alert(`Помилка під час виконання '${action}' для ${containerName}: ${data.output || 'Невідома помилка'}`);
-                checkboxEl.checked = !isChecked;
-            }
-            refreshServiceStatus(containerName);
-            if (window.fetchMetrics) window.fetchMetrics();
-        })
-        .catch(err => {
-            checkboxEl.disabled = false;
-            checkboxEl.checked = !isChecked;
-            alert(`Помилка запиту: ${err.message}`);
-            refreshServiceStatus(containerName);
-        });
-};
-
-window.toggleServiceContainerByPill = function(containerName, switchId, pillId) {
-    const sw = document.getElementById(switchId);
-    if (sw && !sw.disabled) {
-        sw.checked = !sw.checked;
-        window.toggleServiceContainer(containerName, sw, pillId);
-    }
-};
-
-function refreshServiceStatus(containerName) {
-    if (containerName === 'light-bot') {
-        if (window.fetchLightBot) window.fetchLightBot();
-    } else if (containerName === 'po2bot') {
-        if (window.fetchPo2Bot) window.fetchPo2Bot();
-    } else if (containerName === 'meet-streamer') {
-        if (window.fetchMeet) window.fetchMeet();
-    } else if (containerName === 'syncthing') {
-        if (window.fetchSyncthing) window.fetchSyncthing();
-    } else if (containerName === 'services-bitwarden-1') {
-        if (window.fetchVaultwarden) window.fetchVaultwarden();
-    } else if (['services-moodle-1', 'jobeserver', 'services-roster-1', 'idea_factory'].includes(containerName)) {
-        if (window.fetchSchool) window.fetchSchool();
-    }
-}
-
 // 3. LIGHT BOT
 window.fetchLightBot = function() {
     fetch('/api/light-bot/status')
         .then(r => r.json())
         .then(data => {
-            const isRunning = (data.running !== false && data.container_state !== 'exited' && data.container_state !== 'stopped');
-            const lbSwitch = document.getElementById('lightbot-power-switch');
-            const lbPill = document.getElementById('lightbot-status-pill');
-            if (lbSwitch && !lbSwitch.disabled) lbSwitch.checked = isRunning;
-            if (lbPill) {
-                lbPill.className = isRunning ? 'status-pill up' : 'status-pill down';
-                lbPill.textContent = isRunning ? '🟢 Працює' : '🔴 Зупинено';
-            }
-            const lbBadge = document.getElementById('lightbot-badge');
-            if (lbBadge) {
-                lbBadge.textContent = isRunning ? 'ON' : 'OFF';
-                lbBadge.style.background = isRunning ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-                lbBadge.style.color = isRunning ? '#34d399' : '#f87171';
-            }
-
             const container = document.getElementById('lightbot-locations-container');
-            if (!isRunning) {
-                container.innerHTML = '<div style="color: var(--text-muted); padding: 2rem; text-align: center; background: rgba(15, 23, 42, 0.5); border-radius: 8px; border: 1px dashed var(--border-color); grid-column: 1 / -1;">⏸ Сервіс Light Bot зупинено. Увімкніть перемикач вгорі, щоб запустити контейнер.</div>';
-                return;
-            }
-
             if (!data.success || !data.locations) {
                 container.innerHTML = `<div style="color: #f87171;">Light Bot недоступний: ${data.error || 'помилка'}</div>`;
                 return;
@@ -1611,26 +1782,10 @@ window.fetchLightBot = function() {
             if (ob && lSt && lDet) {
                 if (ob.valid) {
                     lSt.innerHTML = '<span style="color: #34d399;">🟢 Підключено</span>';
-                    const costVal = (ob.project_cost_usd !== null && ob.project_cost_usd !== undefined) ? ob.project_cost_usd : ob.cost_usd;
-                    const costStr = (costVal !== null && costVal !== undefined)
-                        ? (costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`)
-                        : null;
-                    const projTitle = ob.project_name
-                        ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · Орг: ${ob.org || 'OpenAI'}`
-                        : (ob.org ? `Орг: ${ob.org}` : '');
-
-                    const sharedBadge = ob.has_shared_keys
-                        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; cursor: pointer; margin-left: 0.35rem;" title="Спільний API-ключ з іншими сервісами хомлабу" onclick="switchTab('ai')">⚠️ Спільний ключ</span>`
-                        : '';
-
-                    if (ob.project_name && costStr !== null) {
-                        lDet.innerHTML = `<strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс)</span> <small style="color: var(--text-muted);">(${ob.key_masked})</small>${sharedBadge} <button class="btn btn-sm btn-logs" style="padding: 0.1rem 0.4rem; font-size: 0.72rem; margin-left: 0.4rem;" onclick="openOpenAICostsModal()">📊 Графік</button>`;
-                    } else if (ob.has_balance && ob.balance_usd !== null) {
-                        lDet.innerHTML = `<strong style="color: #60a5fa;">Залишок: $${ob.balance_usd}</strong> <span style="color: var(--text-dim);">(витрати: ${costStr || '$0'}/міс)</span>`;
-                    } else if (costStr !== null) {
-                        lDet.innerHTML = `<span style="color: #60a5fa;" title="${projTitle}">Витрати: ${costStr}/міс</span> <small style="color: var(--text-muted);">(${ob.key_masked})</small>`;
+                    if (ob.has_balance) {
+                        lDet.innerHTML = `<strong style="color: #60a5fa;">Залишок: $${ob.balance_usd || 0}</strong> <span style="color: var(--text-dim);">(витрати: $${ob.cost_usd || 0})</span>`;
                     } else if (ob.needs_admin_key) {
-                        lDet.innerHTML = `<span style="color: var(--text-muted);">${ob.key_masked}</span> · <span style="color: #f59e0b;" title="Для перегляду витрат потрібен Admin Key">ℹ️ Потрібен Admin Key</span>`;
+                        lDet.innerHTML = `<span style="color: var(--text-muted);">${ob.key_masked}</span> · <span style="color: #f59e0b;" title="Для перегляду балансу потрібен Admin Key з дозволом api.usage.read">ℹ️ Потрібен Admin Key</span>`;
                     } else {
                         lDet.textContent = ob.key_masked;
                     }
@@ -1717,30 +1872,10 @@ window.fetchPo2Bot = function() {
     fetch('/api/po2bot/status')
         .then(r => r.json())
         .then(data => {
-            const isRunning = (data.status === 'running');
-            const po2Switch = document.getElementById('po2-power-switch');
-            const po2CardSwitch = document.getElementById('po2-card-power-switch');
-            const po2Pill = document.getElementById('po2-status-pill');
-            const po2CardPill = document.getElementById('po2-card-status-pill');
-
-            if (po2Switch && !po2Switch.disabled) po2Switch.checked = isRunning;
-            if (po2CardSwitch && !po2CardSwitch.disabled) po2CardSwitch.checked = isRunning;
-
-            [po2Pill, po2CardPill].forEach(pill => {
-                if (pill) {
-                    pill.className = isRunning ? 'status-pill up' : 'status-pill down';
-                    pill.textContent = isRunning ? '🟢 Працює' : '🔴 Зупинено';
-                }
-            });
-
-            const po2Badge = document.getElementById('po2bot-badge');
-            if (po2Badge) {
-                po2Badge.textContent = isRunning ? '8088' : 'OFF';
-                po2Badge.style.background = isRunning ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-                po2Badge.style.color = isRunning ? '#60a5fa' : '#f87171';
-            }
-
-            if (isRunning) {
+            const pill = document.getElementById('po2-status-pill');
+            if (data.status === 'running') {
+                pill.className = 'status-pill up';
+                pill.textContent = '🟢 Працює';
                 document.getElementById('po2-uptime').textContent = formatUptime(data.uptime_seconds);
                 document.getElementById('po2-sheets').innerHTML = data.google_sheets_connected ? '<span style="color: #34d399;">🟢 Підключено</span>' : '<span style="color: #f87171;">🔴 Помилка</span>';
                 document.getElementById('po2-worksheet').textContent = data.worksheet || '--';
@@ -1748,26 +1883,10 @@ window.fetchPo2Bot = function() {
                 if (oEl) {
                     const ob = data.openai_billing;
                     if (ob && ob.valid) {
-                        const costVal = (ob.project_cost_usd !== null && ob.project_cost_usd !== undefined) ? ob.project_cost_usd : ob.cost_usd;
-                        const costStr = (costVal !== null && costVal !== undefined)
-                            ? (costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`)
-                            : null;
-                        const projTitle = ob.project_name
-                            ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · Орг: ${ob.org || 'OpenAI'}`
-                            : (ob.org ? `Орг: ${ob.org}` : '');
-
-                        const sharedBadge = ob.has_shared_keys
-                            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; cursor: pointer; margin-left: 0.35rem;" title="Спільний API-ключ з іншими сервісами хомлабу" onclick="switchTab('ai')">⚠️ Спільний ключ</span>`
-                            : '';
-
-                        if (ob.project_name && costStr !== null) {
-                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс · ${ob.key_masked})</span>${sharedBadge} <button class="btn btn-sm btn-logs" style="padding: 0.1rem 0.4rem; font-size: 0.72rem; margin-left: 0.4rem;" onclick="openOpenAICostsModal()">📊 Графік</button>`;
-                        } else if (ob.has_balance && ob.balance_usd !== null) {
-                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;">($${ob.balance_usd} залишок)</strong>`;
-                        } else if (costStr !== null) {
-                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;">(${costStr} витрати/міс)</strong> <small style="color: var(--text-dim);">(${ob.key_masked})</small>`;
+                        if (ob.has_balance) {
+                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;">($${ob.balance_usd || 0} залишок)</strong>`;
                         } else if (ob.needs_admin_key) {
-                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);" title="Для точного балансу/витрат потрібен Admin Key">(${ob.key_masked} · ℹ️ Баланс потребує Admin Key)</small>`;
+                            oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);" title="Для точного балансу потрібен Admin Key з api.usage.read">(${ob.key_masked} · ℹ️ Баланс потребує Admin Key)</small>`;
                         } else {
                             oEl.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);">(${ob.key_masked})</small>`;
                         }
@@ -1777,12 +1896,8 @@ window.fetchPo2Bot = function() {
                 }
                 document.getElementById('po2-pending-count-badge').textContent = `${data.pending_count || 0} очікують`;
             } else {
-                document.getElementById('po2-uptime').textContent = 'Зупинено';
-                document.getElementById('po2-sheets').innerHTML = '<span style="color: var(--text-dim);">Офлайн</span>';
-                document.getElementById('po2-worksheet').textContent = '--';
-                const oEl = document.getElementById('po2-openai');
-                if (oEl) oEl.innerHTML = '<span style="color: var(--text-dim);">Офлайн</span>';
-                document.getElementById('po2-pending-count-badge').textContent = '0 очікують';
+                pill.className = 'status-pill down';
+                pill.textContent = '🔴 Зупинено';
             }
         })
         .catch(console.error);
@@ -1818,21 +1933,6 @@ window.fetchMeet = function() {
     fetch('/api/meet/status')
         .then(r => r.json())
         .then(data => {
-            const contRunning = (data.container_running !== false && data.container_state !== 'exited' && data.container_state !== 'stopped');
-            const contSw = document.getElementById('meet-container-power-switch');
-            const contPill = document.getElementById('meet-container-status-pill');
-            if (contSw && !contSw.disabled) contSw.checked = contRunning;
-            if (contPill) {
-                contPill.className = contRunning ? 'status-pill up' : 'status-pill down';
-                contPill.textContent = contRunning ? '🟢 Працює' : '🔴 Зупинено';
-            }
-            const meetBadge = document.getElementById('meet-badge');
-            if (meetBadge) {
-                meetBadge.textContent = contRunning ? 'Meet' : 'OFF';
-                meetBadge.style.background = contRunning ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-                meetBadge.style.color = contRunning ? '#fbbf24' : '#f87171';
-            }
-
             if (isMeetToggling) return;
             currentMeetInMeeting = !!data.inMeeting;
             const pill = document.getElementById('meet-status-pill');
@@ -2196,7 +2296,7 @@ function sendMeetChatMessage() {
             resDiv.style.color = '#34d399';
             setTimeout(() => { resDiv.textContent = ''; }, 4000);
         } else {
-            resDiv.textContent = `❌ Помилка: ${data.response?.error || 'не вдалося надіслати'}`;
+            resDiv.textContent = `❌ Помилка: ${(data.response && data.response.error) || 'не вдалося надіслати'}`;
             resDiv.style.color = '#f87171';
         }
     })
@@ -2247,11 +2347,11 @@ function sendMeetPinForEveryone() {
         .then(r => r.json())
         .then(data => {
             if (btn) btn.disabled = false;
-            if (data.success && (data.response?.ok || data.response?.pinned || data.response?.alreadyPinned)) {
+            if (data.success && ((data.response && data.response.ok) || (data.response && data.response.pinned) || (data.response && data.response.alreadyPinned))) {
                 alert('📌 Відео успішно закріплено для всіх учасників!');
                 window.fetchMeet();
             } else {
-                alert(`Помилка закріплення: ${JSON.stringify(data.response?.error || data.response || data.error)}`);
+                alert(`Помилка закріплення: ${JSON.stringify((data.response && data.response.error) || data.response || data.error)}`);
             }
         })
         .catch(err => {
@@ -2486,19 +2586,84 @@ window.fetchSchool = function() {
         .then(r => r.json())
         .then(res => {
             if (!res.success) return;
-            // Moodle
+            
+            // --- AI141 GPU Server Handling ---
+            const ai = res.ai141;
+            const isOnline = Boolean(ai && ai.online);
+
+            ['ai141-home-pill', 'ai141-tab-status-pill'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.className = isOnline ? 'status-pill up' : 'status-pill down';
+                    el.textContent = isOnline ? '🟢 Онлайн' : '🔴 Офлайн';
+                }
+            });
+
+            const aiBadge = document.getElementById('ai141-nav-badge');
+            if (aiBadge) {
+                aiBadge.textContent = isOnline ? '2x GPU' : 'Down';
+                aiBadge.style.color = isOnline ? '#c084fc' : '#ef4444';
+                aiBadge.style.background = isOnline ? 'rgba(168, 85, 247, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+            }
+
+            const tg0El = document.getElementById('ai141-tab-gpu0-mem');
+            const tg0Meta = document.getElementById('ai141-tab-gpu0-meta');
+            const tg1El = document.getElementById('ai141-tab-gpu1-mem');
+            const tg1Meta = document.getElementById('ai141-tab-gpu1-meta');
+            const tCpuRam = document.getElementById('ai141-tab-cpu-ram');
+            const tCpuMeta = document.getElementById('ai141-tab-cpu-ram-meta');
+            const tSrvCount = document.getElementById('ai141-tab-services-count');
+            const tSrvPills = document.getElementById('ai141-tab-services-pills');
+
+            if (isOnline) {
+                if (ai.gpus && ai.gpus.length >= 1) {
+                    const g0 = ai.gpus[0];
+                    if (tg0El) tg0El.textContent = (g0.memory_used_mb !== undefined) ? `${Math.round(g0.memory_used_mb)} MB (${g0.memory}%)` : `${g0.memory}%`;
+                    if (tg0Meta) tg0Meta.textContent = `${g0.temp || '--'}°C • Навантаження ${g0.load || 0}%`;
+                }
+                if (ai.gpus && ai.gpus.length >= 2) {
+                    const g1 = ai.gpus[1];
+                    if (tg1El) tg1El.textContent = (g1.memory_used_mb !== undefined) ? `${Math.round(g1.memory_used_mb)} MB (${g1.memory}%)` : `${g1.memory}%`;
+                    if (tg1Meta) tg1Meta.textContent = `${g1.temp || '--'}°C • Навантаження ${g1.load || 0}%`;
+                }
+                if (tCpuRam) tCpuRam.textContent = `${ai.cpu || 0}% / ${ai.ram || 0}%`;
+                if (tCpuMeta) tCpuMeta.textContent = `CPU ${ai.cpu || 0}% • RAM ${ai.ram || 0}%`;
+
+                if (ai.services && ai.services.length) {
+                    const activeCount = ai.services.filter(s => s.active).length;
+                    if (tSrvCount) tSrvCount.textContent = `${activeCount} / ${ai.services.length} активні`;
+                    if (tSrvPills) {
+                        tSrvPills.innerHTML = ai.services.map(s => {
+                            const badgeColor = s.active ? '#10b981' : '#64748b';
+                            const badgeBg = s.active ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)';
+                            const linkOpen = s.url ? ('<a href="' + s.url + '" target="_blank" style="color: inherit; text-decoration: none;">') : '';
+                            const linkClose = s.url ? ' ↗</a>' : '';
+                            return '<span style="padding: 0.3rem 0.75rem; border-radius: 9999px; font-size: 0.82rem; background: ' + badgeBg + '; color: ' + badgeColor + '; border: 1px solid ' + badgeColor + '40;">● ' + linkOpen + s.name + linkClose + '</span>';
+                        }).join('');
+                    }
+                }
+            } else {
+                if (tg0El) tg0El.textContent = 'Офлайн';
+                if (tg0Meta) tg0Meta.textContent = 'Сервер недоступний';
+                if (tg1El) tg1El.textContent = 'Офлайн';
+                if (tg1Meta) tg1Meta.textContent = 'Сервер недоступний';
+                if (tCpuRam) tCpuRam.textContent = '-- / --';
+                if (tCpuMeta) tCpuMeta.textContent = 'Шкільний сервер вимкнений';
+                if (tSrvCount) tSrvCount.textContent = '0 активні';
+                if (tSrvPills) tSrvPills.innerHTML = '<span style="color: #ef4444; font-size: 0.85rem;">⚠️ Сервер або Cloudflare Tunnel не відповідає</span>';
+            }
+
+            // --- Moodle LMS ---
             const m = res.moodle;
-            const mSw = document.getElementById('moodle-power-switch');
-            if (mSw && !mSw.disabled) mSw.checked = !!m.online;
             const mPill = document.getElementById('moodle-status-pill');
             if (mPill) {
                 mPill.className = m.online ? 'status-pill up' : 'status-pill down';
                 mPill.textContent = m.online ? '🟢 Працює' : '🔴 Офлайн';
             }
-            const navBadge = document.getElementById('school-nav-badge');
-            if (navBadge) {
-                navBadge.textContent = 'Moodle';
-                navBadge.style.color = '#34d399';
+            const schoolBadge = document.getElementById('school-nav-badge');
+            if (schoolBadge) {
+                schoolBadge.textContent = 'Moodle';
+                schoolBadge.style.color = '#34d399';
             }
             const volEl = document.getElementById('moodle-volume-size');
             if (volEl) volEl.textContent = m.volume_size || '--';
@@ -2507,10 +2672,8 @@ window.fetchSchool = function() {
             const uEl = document.getElementById('moodle-users-count');
             if (uEl) uEl.textContent = m.users_count || '--';
 
-            // Jobe
+            // --- Jobe ---
             const j = res.jobe;
-            const jSw = document.getElementById('jobe-power-switch');
-            if (jSw && !jSw.disabled) jSw.checked = !!j.online;
             const jPill = document.getElementById('jobe-status-pill');
             if (jPill) {
                 jPill.className = j.online ? 'status-pill up' : 'status-pill down';
@@ -2520,13 +2683,13 @@ window.fetchSchool = function() {
             if (jCnt) jCnt.textContent = j.languages ? `${j.languages.length} мов` : '--';
             const jPills = document.getElementById('jobe-languages-pills');
             if (jPills && j.languages) {
-                jPills.innerHTML = j.languages.map(l => `<span style="background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">${l}</span>`).join('');
+                jPills.innerHTML = j.languages.map(lang => 
+                    `<span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid rgba(56, 189, 248, 0.3);">${lang}</span>`
+                ).join('');
             }
 
-            // Roster
+            // --- Students Roster ---
             const r = res.roster;
-            const rSw = document.getElementById('roster-power-switch');
-            if (rSw && !rSw.disabled) rSw.checked = !!r.online;
             const rPill = document.getElementById('roster-status-pill');
             if (rPill) {
                 rPill.className = r.online ? 'status-pill up' : 'status-pill down';
@@ -2535,87 +2698,15 @@ window.fetchSchool = function() {
             const rDb = document.getElementById('roster-db-size');
             if (rDb) rDb.textContent = r.db_size || '--';
 
-            // Idea Factory
-            const i = res.idea_factory;
-            const iSw = document.getElementById('ideas-power-switch');
-            if (iSw && !iSw.disabled) iSw.checked = !!i.online;
+            // --- Idea Factory ---
+            const ideas = res.idea_factory;
             const iPill = document.getElementById('ideas-status-pill');
             if (iPill) {
-                iPill.className = i.online ? 'status-pill up' : 'status-pill down';
-                iPill.textContent = i.online ? '🟢 Працює' : '🔴 Офлайн';
-            }
-            const iOpenai = document.getElementById('ideas-openai');
-            if (iOpenai) {
-                const ob = i.openai_billing;
-                if (ob && ob.valid) {
-                    const costVal = (ob.project_cost_usd !== null && ob.project_cost_usd !== undefined) ? ob.project_cost_usd : ob.cost_usd;
-                    const costStr = (costVal !== null && costVal !== undefined)
-                        ? (costVal < 0.01 && costVal > 0 ? `$${costVal}` : `$${Number(costVal).toFixed(2)}`)
-                        : null;
-                    const projTitle = ob.project_name
-                        ? `Проєкт OpenAI: ${ob.project_name}${ob.key_name ? ' (' + ob.key_name + ')' : ''} · 7д: $${ob.spent_7d || 0} · 30д: $${ob.spent_30d || 0}`
-                        : '';
-                    const sharedBadge = ob.has_shared_keys
-                        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; cursor: pointer; margin-left: 0.35rem;" title="Спільний API-ключ з іншими сервісами хомлабу" onclick="switchTab('ai')">⚠️ Спільний ключ</span>`
-                        : '';
-
-                    if (ob.project_name && costStr !== null) {
-                        iOpenai.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <strong style="color: #60a5fa;" title="${projTitle}">[${ob.project_name}]</strong> <span style="color: var(--text-dim);" title="${projTitle}">(${costStr}/міс · ${ob.key_masked})</span>${sharedBadge} <button class="btn btn-sm btn-logs" style="padding: 0.1rem 0.4rem; font-size: 0.72rem; margin-left: 0.4rem;" onclick="openOpenAICostsModal()">📊 Графік</button>`;
-                    } else {
-                        iOpenai.innerHTML = `<span style="color: #34d399;">🟢 Підключено</span> <small style="color: var(--text-dim);">(${ob.key_masked})</small>${sharedBadge}`;
-                    }
-                } else {
-                    iOpenai.innerHTML = '<span style="color: #f87171;">🔴 Не налаштовано</span>';
-                }
+                iPill.className = ideas.online ? 'status-pill up' : 'status-pill down';
+                iPill.textContent = ideas.online ? '🟢 Працює' : '🔴 Офлайн';
             }
         })
-        .catch(console.error);
-};
-
-window.fetchDomains = function() {
-    fetch('/api/domains/status')
-        .then(r => r.json())
-        .then(res => {
-            if (!res.success || !res.domains) return;
-            const grid = document.getElementById('domains-grid');
-            if (!grid) return;
-            grid.innerHTML = res.domains.map(d => {
-                const isUp = d.online;
-                const statusColor = isUp ? '#34d399' : '#f87171';
-                const pillClass = isUp ? 'status-pill up' : 'status-pill down';
-                const statusText = isUp ? (d.status_code ? `${d.status_code} OK` : 'Online') : 'Down';
-                const latencyText = d.latency_ms ? `${d.latency_ms} ms` : '--';
-
-                return `
-                <div class="service-card" style="display: flex; flex-direction: column; justify-content: space-between;">
-                    <div>
-                        <div class="service-card-header">
-                            <div class="service-title">
-                                <span>${d.icon}</span>
-                                <span>${d.name}</span>
-                            </div>
-                            <span class="${pillClass}">${statusText}</span>
-                        </div>
-                        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0.6rem 0 0.8rem 0;">${d.desc}</p>
-                        <div class="info-list" style="margin-bottom: 0.75rem;">
-                            <div class="info-item">
-                                <span class="info-label">Домен:</span>
-                                <span class="info-val"><a href="${d.url}" target="_blank" style="color: #60a5fa; text-decoration: none;">${d.domain} ↗</a></span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Час відгуку:</span>
-                                <span class="info-val" style="color: ${statusColor}; font-weight: 600;">${latencyText}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="margin-top: 0.5rem;">
-                        <a href="${d.url}" target="_blank" class="btn btn-up" style="width: 100%; text-decoration: none;">Відкрити сервіс ↗</a>
-                    </div>
-                </div>
-                `;
-            }).join('');
-        })
-        .catch(console.error);
+        .catch(err => console.error('fetchSchool error:', err));
 };
 
 window.fetchSyncthing = function() {
@@ -2628,16 +2719,6 @@ window.fetchSyncthing = function() {
                 pill.className = res.online ? 'status-pill up' : 'status-pill down';
                 pill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
             }
-            const topPill = document.getElementById('syncthing-top-status-pill');
-            if (topPill) {
-                topPill.className = res.online ? 'status-pill up' : 'status-pill down';
-                topPill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
-            }
-            const synSw = document.getElementById('syncthing-power-switch');
-            if (synSw && !synSw.disabled) synSw.checked = !!res.online;
-            const synTopSw = document.getElementById('syncthing-top-power-switch');
-            if (synTopSw && !synTopSw.disabled) synTopSw.checked = !!res.online;
-
             const vz = document.getElementById('syncthing-vault-size');
             if (vz) vz.textContent = res.vault_size || '--';
 
@@ -2677,16 +2758,6 @@ window.fetchVaultwarden = function() {
                 pill.className = res.online ? 'status-pill up' : 'status-pill down';
                 pill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
             }
-            const topPill = document.getElementById('vw-top-status-pill');
-            if (topPill) {
-                topPill.className = res.online ? 'status-pill up' : 'status-pill down';
-                topPill.textContent = res.online ? '🟢 Працює' : '🔴 Офлайн';
-            }
-            const vwSw = document.getElementById('vw-power-switch');
-            if (vwSw && !vwSw.disabled) vwSw.checked = !!res.online;
-            const vwTopSw = document.getElementById('vw-top-power-switch');
-            if (vwTopSw && !vwTopSw.disabled) vwTopSw.checked = !!res.online;
-
             const dbEl = document.getElementById('vw-db-size');
             if (dbEl) dbEl.textContent = res.db_size || '--';
             const bkEl = document.getElementById('vw-last-backup');
@@ -2694,6 +2765,586 @@ window.fetchVaultwarden = function() {
         })
         .catch(console.error);
 };
+
+// Initial fetch & 5s interval loop
+document.addEventListener('DOMContentLoaded', () => {
+    fetchMetrics();
+    fetchLightBot();
+    fetchPo2Bot();
+    fetchMeet();
+    fetchBannerTemplates();
+    fetchSchool();
+    fetchDomains();
+    fetchSyncthing();
+    fetchVaultwarden();
+
+    setInterval(() => {
+        if (currentActiveTab === 'metrics') fetchMetrics();
+        if (currentActiveTab === 'domains') fetchDomains();
+        if (currentActiveTab === 'school') fetchSchool();
+        if (currentActiveTab === 'syncthing') fetchSyncthing();
+        if (currentActiveTab === 'vaultwarden') fetchVaultwarden();
+        if (currentActiveTab === 'lightbot') fetchLightBot();
+        if (currentActiveTab === 'po2bot') fetchPo2Bot();
+        if (currentActiveTab === 'meet') fetchMeet();
+    }, 5000);
+});
+
+// ==========================================
+// HISTORICAL METRICS CHARTS CONTROLLER
+// ==========================================
+let currentMonicaRange = '24h';
+let currentAI141Range = '24h';
+let monicaChartInst = null;
+let aiGpuMemChartInst = null;
+let aiGpuTempChartInst = null;
+
+function formatChartTime(ts) {
+    const d = new Date(ts * 1000);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    if (currentMonicaRange === '7d' || currentMonicaRange === '30d') {
+        const mon = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${day}.${mon} ${h}:${m}`;
+    }
+    return `${h}:${m}`;
+}
+
+window.setMonicaRange = function(r) {
+    currentMonicaRange = r;
+    ['1h', '6h', '24h', '7d', '30d'].forEach(x => {
+        const b = document.getElementById(`btn-mrange-${x}`);
+        if (b) b.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+    });
+    loadMonicaCharts();
+};
+
+window.setAI141Range = function(r) {
+    currentAI141Range = r;
+    ['1h', '6h', '24h', '7d', '30d'].forEach(x => {
+        const b = document.getElementById(`btn-airange-${x}`);
+        if (b) b.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+    });
+    loadAI141Charts();
+    if (window.fetchCICD) window.fetchCICD();
+    if (window.fetchAIBilling) window.fetchAIBilling();
+};
+
+async function loadMonicaCharts() {
+    if (typeof Chart === 'undefined') return;
+    const canvas = document.getElementById('monicaHistoryChart');
+    if (!canvas) return;
+
+    try {
+        const [cpuRes, ramRes, swapRes] = await Promise.all([
+            fetch(`/api/metrics/history?host=monica&metric=cpu&range=${currentMonicaRange}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=monica&metric=ram&range=${currentMonicaRange}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=monica&metric=swap&range=${currentMonicaRange}`).then(r => r.json())
+        ]);
+
+        const cpuPts = (cpuRes.points || []);
+        const ramPts = (ramRes.points || []);
+        const swapPts = (swapRes.points || []);
+
+        const labels = cpuPts.map(p => formatChartTime(p.t));
+        const cpuData = cpuPts.map(p => p.v);
+        const ramData = ramPts.map(p => p.v);
+        const swapData = swapPts.map(p => p.v);
+
+        if (monicaChartInst) monicaChartInst.destroy();
+
+        monicaChartInst = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'CPU (%)',
+                        data: cpuData,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'RAM (%)',
+                        data: ramData,
+                        borderColor: '#a855f7',
+                        backgroundColor: 'rgba(168, 85, 247, 0.12)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Swap (%)',
+                        data: swapData,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        borderDash: [4, 4],
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 }, maxTicksLimit: 12 } },
+                    y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 }, callback: v => v + '%' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 12, font: { size: 12 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error rendering Monica charts:', e);
+    }
+}
+
+let aiCpuRamChartInst = null;
+
+async function loadAI141Charts() {
+    if (typeof Chart === 'undefined') return;
+    const memCanvas = document.getElementById('ai141GpuMemChart');
+    const tempCanvas = document.getElementById('ai141GpuTempChart');
+    const hostCanvas = document.getElementById('ai141CpuRamChart');
+    if (!memCanvas || !tempCanvas) return;
+
+    try {
+        const [g0Mem, g1Mem, g0Temp, g1Temp, hostCpu, hostRam] = await Promise.all([
+            fetch(`/api/metrics/history?host=ai141&metric=gpu0_mem&range=${currentAI141Range}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=ai141&metric=gpu1_mem&range=${currentAI141Range}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=ai141&metric=gpu0_temp&range=${currentAI141Range}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=ai141&metric=gpu1_temp&range=${currentAI141Range}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=ai141&metric=cpu&range=${currentAI141Range}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=ai141&metric=ram&range=${currentAI141Range}`).then(r => r.json())
+        ]);
+
+        const pts = (g0Mem.points || []);
+        const labels = pts.map(p => formatChartTime(p.t));
+
+        // 1. Mem chart
+        if (aiGpuMemChartInst) aiGpuMemChartInst.destroy();
+        aiGpuMemChartInst = new Chart(memCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'GPU 0 VRAM (%)',
+                        data: (g0Mem.points || []).map(p => p.v),
+                        borderColor: '#c084fc',
+                        backgroundColor: 'rgba(192, 132, 252, 0.15)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'GPU 1 VRAM (%)',
+                        data: (g1Mem.points || []).map(p => p.v),
+                        borderColor: '#a855f7',
+                        backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + '%' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+
+        // 2. Temp chart
+        if (aiGpuTempChartInst) aiGpuTempChartInst.destroy();
+        aiGpuTempChartInst = new Chart(tempCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'GPU 0 Temp (°C)',
+                        data: (g0Temp.points || []).map(p => p.v),
+                        borderColor: '#f97316',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'GPU 1 Temp (°C)',
+                        data: (g1Temp.points || []).map(p => p.v),
+                        borderColor: '#eab308',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { min: 20, max: 90, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + '°C' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+
+        // 3. Host CPU & RAM chart
+        if (hostCanvas) {
+            const cpuPts = (hostCpu.points || []);
+            const ramPts = (hostRam.points || []);
+            const hostLabels = cpuPts.length ? cpuPts.map(p => formatChartTime(p.t)) : labels;
+            if (aiCpuRamChartInst) aiCpuRamChartInst.destroy();
+            aiCpuRamChartInst = new Chart(hostCanvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: hostLabels,
+                    datasets: [
+                        {
+                            label: 'CPU (%)',
+                            data: cpuPts.map(p => p.v),
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'RAM (%)',
+                            data: ramPts.map(p => p.v),
+                            borderColor: '#34d399',
+                            backgroundColor: 'rgba(52, 211, 153, 0.12)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    scales: {
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 10 } },
+                        y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + '%' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                        tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.error('Error rendering AI141 charts:', e);
+    }
+}
+
+// Additional Storage Charts Controllers
+let currentSyncRange = '24h';
+let currentVWRange = '24h';
+let currentSchoolStorageRange = '24h';
+
+let obsidianSizeChartInst = null;
+let obsidianConflictsChartInst = null;
+let vaultwardenDbChartInst = null;
+let moodleVolumeChartInst = null;
+let rosterDbChartInst = null;
+
+function formatStorageTime(ts, range) {
+    const d = new Date(ts * 1000);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    if (range === '7d' || range === '30d') {
+        const mon = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${day}.${mon} ${h}:${m}`;
+    }
+    return `${h}:${m}`;
+}
+
+window.setSyncRange = function(r) {
+    currentSyncRange = r;
+    ['24h', '7d', '30d'].forEach(x => {
+        const b1 = document.getElementById(`btn-sync-range-${x}`);
+        if (b1) b1.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+        const b2 = document.getElementById(`btn-sync-c-range-${x}`);
+        if (b2) b2.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+    });
+    loadSyncthingCharts();
+};
+
+window.setVWRange = function(r) {
+    currentVWRange = r;
+    ['24h', '7d', '30d'].forEach(x => {
+        const b = document.getElementById(`btn-vw-range-${x}`);
+        if (b) b.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+    });
+    loadVaultwardenCharts();
+};
+
+window.setSchoolStorageRange = function(r) {
+    currentSchoolStorageRange = r;
+    ['24h', '7d', '30d'].forEach(x => {
+        const b1 = document.getElementById(`btn-school-range-${x}`);
+        if (b1) b1.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+        const b2 = document.getElementById(`btn-school-r-range-${x}`);
+        if (b2) b2.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+    });
+    loadSchoolStorageCharts();
+};
+
+async function loadSyncthingCharts() {
+    if (typeof Chart === 'undefined') return;
+    const sizeCanvas = document.getElementById('obsidianSizeChart');
+    const confCanvas = document.getElementById('obsidianConflictsChart');
+    if (!sizeCanvas || !confCanvas) return;
+
+    try {
+        const [sizeRes, confRes] = await Promise.all([
+            fetch(`/api/metrics/history?host=monica&metric=obsidian_size_mb&range=${currentSyncRange}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=monica&metric=obsidian_conflicts&range=${currentSyncRange}`).then(r => r.json())
+        ]);
+
+        const sizePts = sizeRes.points || [];
+        const confPts = confRes.points || [];
+
+        // Render Size Chart
+        const sizeLabels = sizePts.map(p => formatStorageTime(p.t, currentSyncRange));
+        if (obsidianSizeChartInst) obsidianSizeChartInst.destroy();
+        obsidianSizeChartInst = new Chart(sizeCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: sizeLabels,
+                datasets: [{
+                    label: 'Розмір (MB)',
+                    data: sizePts.map(p => p.v),
+                    borderColor: '#a855f7',
+                    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.25,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + ' MB' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+
+        // Render Conflicts Chart
+        const confLabels = confPts.map(p => formatStorageTime(p.t, currentSyncRange));
+        if (obsidianConflictsChartInst) obsidianConflictsChartInst.destroy();
+        obsidianConflictsChartInst = new Chart(confCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: confLabels,
+                datasets: [{
+                    label: 'Конфлікти (файлів)',
+                    data: confPts.map(p => p.v),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', precision: 0 } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error rendering Syncthing charts:', e);
+    }
+}
+
+async function loadVaultwardenCharts() {
+    if (typeof Chart === 'undefined') return;
+    const canvas = document.getElementById('vaultwardenDbChart');
+    if (!canvas) return;
+
+    try {
+        const res = await fetch(`/api/metrics/history?host=monica&metric=vaultwarden_db_mb&range=${currentVWRange}`).then(r => r.json());
+        const pts = res.points || [];
+        const labels = pts.map(p => formatStorageTime(p.t, currentVWRange));
+
+        if (vaultwardenDbChartInst) vaultwardenDbChartInst.destroy();
+        vaultwardenDbChartInst = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Розмір бази (MB)',
+                    data: pts.map(p => p.v),
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + ' MB' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error rendering Vaultwarden charts:', e);
+    }
+}
+
+async function loadSchoolStorageCharts() {
+    if (typeof Chart === 'undefined') return;
+    const moodleCanvas = document.getElementById('moodleVolumeChart');
+    const rosterCanvas = document.getElementById('rosterDbChart');
+    if (!moodleCanvas || !rosterCanvas) return;
+
+    try {
+        const [moodleRes, rosterRes] = await Promise.all([
+            fetch(`/api/metrics/history?host=monica&metric=moodle_volume_mb&range=${currentSchoolStorageRange}`).then(r => r.json()),
+            fetch(`/api/metrics/history?host=monica&metric=roster_db_mb&range=${currentSchoolStorageRange}`).then(r => r.json())
+        ]);
+
+        const moodlePts = moodleRes.points || [];
+        const rosterPts = rosterRes.points || [];
+
+        // Render Moodle Volume Chart
+        const moodleLabels = moodlePts.map(p => formatStorageTime(p.t, currentSchoolStorageRange));
+        if (moodleVolumeChartInst) moodleVolumeChartInst.destroy();
+        moodleVolumeChartInst = new Chart(moodleCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: moodleLabels,
+                datasets: [{
+                    label: 'moodledata (MB)',
+                    data: moodlePts.map(p => p.v),
+                    borderColor: '#c084fc',
+                    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + ' MB' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+
+        // Render Roster DB Chart
+        const rosterLabels = rosterPts.map(p => formatStorageTime(p.t, currentSchoolStorageRange));
+        if (rosterDbChartInst) rosterDbChartInst.destroy();
+        rosterDbChartInst = new Chart(rosterCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: rosterLabels,
+                datasets: [{
+                    label: 'Roster DB (MB)',
+                    data: rosterPts.map(p => p.v),
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + ' MB' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error rendering School Storage charts:', e);
+    }
+}
 
 // 10. AI & EXTERNAL SERVICES BILLING TAB
 // 10. AI & EXTERNAL SERVICES BILLING TAB
@@ -3052,30 +3703,98 @@ function renderAITabChartFiltered(filteredDays, data, hasFilter) {
     container.innerHTML = svg;
 }
 
-// Initial fetch & 5s interval loop
-document.addEventListener('DOMContentLoaded', () => {
-    fetchMetrics();
-    fetchLightBot();
-    fetchPo2Bot();
-    fetchMeet();
-    fetchBannerTemplates();
-    fetchSchool();
-    fetchDomains();
-    fetchSyncthing();
-    fetchVaultwarden();
-    fetchAIBilling();
 
-    setInterval(() => {
-        if (currentActiveTab === 'metrics') fetchMetrics();
-        if (currentActiveTab === 'domains') fetchDomains();
-        if (currentActiveTab === 'school') fetchSchool();
-        if (currentActiveTab === 'syncthing') fetchSyncthing();
-        if (currentActiveTab === 'vaultwarden') fetchVaultwarden();
-        if (currentActiveTab === 'lightbot') fetchLightBot();
-        if (currentActiveTab === 'po2bot') fetchPo2Bot();
-        if (currentActiveTab === 'meet') fetchMeet();
-        if (currentActiveTab === 'ai') fetchAIBilling();
-    }, 5000);
-});
+// ==========================================
+// CI/CD MANAGER & METRICS DB CONTROLLER
+// ==========================================
+let currentCICDRange = '24h';
+let cicdMetricsDbChartInst = null;
+
+window.fetchCICD = function() {
+    fetch('/api/cicd/status')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+            const szEl = document.getElementById('cicd-db-size-val');
+            if (szEl) szEl.innerText = data.db_size_str || '--';
+            const badge = document.getElementById('cicd-nav-badge');
+            if (badge) badge.innerText = data.db_size_str || 'Engine';
+        })
+        .catch(console.error);
+};
+
+window.setCICDRange = function(r) {
+    currentCICDRange = r;
+    ['24h', '7d', '30d'].forEach(x => {
+        const b = document.getElementById(`btn-cicd-range-${x}`);
+        if (b) b.className = (x === r) ? 'btn btn-sm btn-up' : 'btn btn-sm';
+    });
+    loadCICDCharts();
+};
+
+async function loadCICDCharts() {
+    if (typeof Chart === 'undefined') return;
+    const canvas = document.getElementById('cicdMetricsDbChart');
+    if (!canvas) return;
+
+    try {
+        const res = await fetch(`/api/metrics/history?host=monica&metric=cicd_metrics_db_mb&range=${currentCICDRange}`).then(r => r.json());
+        const pts = res.points || [];
+        const labels = pts.map(p => formatStorageTime(p.t, currentCICDRange));
+
+        if (cicdMetricsDbChartInst) cicdMetricsDbChartInst.destroy();
+        cicdMetricsDbChartInst = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Розмір metrics_history.db (MB)',
+                    data: pts.map(p => p.v),
+                    borderColor: '#a855f7',
+                    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => v + ' MB' } }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1 }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error rendering CI/CD charts:', e);
+    }
+}
+
+
+// Initial charts load
+setTimeout(() => {
+    loadMonicaCharts();
+    loadAI141Charts();
+}, 600);
+
+// Auto-refresh charts every 30 seconds
+setInterval(() => {
+    if (currentActiveTab === 'metrics') loadMonicaCharts();
+    if (currentActiveTab === 'ai141') loadAI141Charts();
+    if (currentActiveTab === 'syncthing') loadSyncthingCharts();
+    if (currentActiveTab === 'vaultwarden') loadVaultwardenCharts();
+    if (currentActiveTab === 'school') loadSchoolStorageCharts();
+    if (currentActiveTab === 'cicd') { loadCICDCharts(); fetchCICD(); }
+    if (currentActiveTab === 'ai' && window.fetchAIBilling) window.fetchAIBilling();
+}, 30000);
+
 </script>
 {% endblock %}

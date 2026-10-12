@@ -321,6 +321,7 @@
 
         {% block extra_style %}{% endblock %}
     </style>
+    <script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
 </head>
 <body>
     {% if session.logged_in %}
@@ -377,8 +378,14 @@
 
             <div class="nav-item" onclick="switchTab('school')" id="nav-school">
                 <span class="icon">🎓</span>
-                <span>School</span>
+                <span>School (Moodle)</span>
                 <span class="badge" id="school-nav-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Moodle</span>
+            </div>
+
+            <div class="nav-item" onclick="switchTab('ai141')" id="nav-ai141">
+                <span class="icon">🖥️</span>
+                <span>AI141 GPU Lab</span>
+                <span class="badge" id="ai141-nav-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">2x GPU</span>
             </div>
 
             <div class="nav-item" onclick="switchTab('meet')" id="nav-meet">
@@ -413,6 +420,12 @@
                 <span class="icon">🏢</span>
                 <span>Po2Bot</span>
                 <span class="badge" id="po2bot-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">8088</span>
+            </div>
+
+            <div class="nav-item" onclick="switchTab('cicd')" id="nav-cicd">
+                <span class="icon">⚙️</span>
+                <span>CI/CD Manager</span>
+                <span class="badge" id="cicd-nav-badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">Engine</span>
             </div>
 
             <div class="nav-item" onclick="switchTab('compose')" id="nav-compose">
@@ -489,9 +502,29 @@
             // Trigger immediate refresh for active tab
             if (tabId === 'metrics' && window.fetchMetrics) window.fetchMetrics();
             if (tabId === 'domains' && window.fetchDomains) window.fetchDomains();
-            if (tabId === 'school' && window.fetchSchool) window.fetchSchool();
-            if (tabId === 'syncthing' && window.fetchSyncthing) window.fetchSyncthing();
-            if (tabId === 'vaultwarden' && window.fetchVaultwarden) window.fetchVaultwarden();
+            if (tabId === 'ai141' && window.fetchSchool) {
+                window.fetchSchool();
+                if (window.loadAI141Charts) window.loadAI141Charts();
+            }
+            if (tabId === 'metrics' && window.loadMonicaCharts) {
+                window.loadMonicaCharts();
+            }
+            if (tabId === 'syncthing') {
+                if (window.fetchSyncthing) window.fetchSyncthing();
+                if (window.loadSyncthingCharts) window.loadSyncthingCharts();
+            }
+            if (tabId === 'vaultwarden') {
+                if (window.fetchVaultwarden) window.fetchVaultwarden();
+                if (window.loadVaultwardenCharts) window.loadVaultwardenCharts();
+            }
+            if (tabId === 'school') {
+                if (window.fetchSchool) window.fetchSchool();
+                if (window.loadSchoolStorageCharts) window.loadSchoolStorageCharts();
+            }
+            if (tabId === 'cicd') {
+                if (window.fetchCICD) window.fetchCICD();
+                if (window.loadCICDCharts) window.loadCICDCharts();
+            }
             if (tabId === 'lightbot' && window.fetchLightBot) window.fetchLightBot();
             if (tabId === 'po2bot' && window.fetchPo2Bot) window.fetchPo2Bot();
             if (tabId === 'meet' && window.fetchMeet) window.fetchMeet();

@@ -9,6 +9,7 @@ Manages:
 - Meet Streamer (Google Meet bot)
 """
 
+import metrics_history
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 import os
 import subprocess
@@ -1817,8 +1818,36 @@ def api_school_status():
     if time.time() - SCHOOL_CACHE['timestamp'] > 300:
         update_school_storage_cache_async()
 
+    # 5. AI141 GPU Server (School server)
+    ai141_data = {
+        'online': False,
+        'url': 'https://ai141.pp.ua',
+        'openwebui_url': 'https://gpt.ai141.pp.ua',
+        'cpu': None,
+        'ram': None,
+        'gpus': [],
+        'services': []
+    }
+    ai141_token = os.environ.get('AI141_API_TOKEN', 'bf6dbcac13dc233d9d913b563cb82fca09a5c9e6ce9bf42d')
+    try:
+        req_headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; CICDManager/1.0)',
+            'Authorization': f'Bearer {ai141_token}'
+        }
+        ai_code, ai_resp = http_request('https://ai141.pp.ua/api/status', headers=req_headers, timeout=4)
+        if ai_code == 200 and isinstance(ai_resp, dict):
+            ai141_data['online'] = True
+            sys_info = ai_resp.get('system', {})
+            ai141_data['cpu'] = sys_info.get('cpu')
+            ai141_data['ram'] = sys_info.get('ram')
+            ai141_data['gpus'] = sys_info.get('gpus', [])
+            ai141_data['services'] = ai_resp.get('services', [])
+    except Exception as e:
+        print(f'Error fetching AI141 status: {e}')
+
     return jsonify({
         'success': True,
+        'ai141': ai141_data,
         'moodle': {
             'online': moodle_online,
             'url': 'https://moodle.rmn.pp.ua',
@@ -2078,6 +2107,170 @@ def docker_logs(service):
     command = f'{DOCKER_COMPOSE_CMD} -f {COMPOSE_FILE} logs --tail=150 {service}'
     result = run_command(command)
     return jsonify(result)
+
+
+
+# ==========================================
+# HISTORICAL METRICS ENGINE (MONICA + AI141)
+# ==========================================
+
+metrics_history.init_db()
+
+
+def collect_storage_metrics(now):
+    pts = []
+    # 1. Vaultwarden db (MB)
+    for p in ["/services/bw-data/db.sqlite3", "/root/services/bw-data/db.sqlite3"]:
+        if os.path.exists(p):
+            mb = round(os.path.getsize(p) / (1024 * 1024), 2)
+            pts.append((now, 'monica', 'vaultwarden_db_mb', float(mb)))
+            break
+
+    # 2. Roster db (MB)
+    for p in ["/services/roster/data/db.sqlite3", "/root/services/roster/data/db.sqlite3"]:
+        if os.path.exists(p):
+            mb = round(os.path.getsize(p) / (1024 * 1024), 2)
+            pts.append((now, 'monica', 'roster_db_mb', float(mb)))
+            break
+
+    # 3. Obsidian vault size (MB) & conflicts
+    for p in ["/services/obsidian-vault-personal", "/root/services/obsidian-vault-personal"]:
+        if os.path.exists(p):
+            try:
+                out = subprocess.check_output(["du", "-sb", p], timeout=10).decode()
+                mb = round(int(out.split()[0]) / (1024 * 1024), 2)
+                pts.append((now, 'monica', 'obsidian_size_mb', float(mb)))
+            except Exception:
+                pass
+            try:
+                cmd = f'find {p} -name "*.sync-conflict-*" ! -path "*/.stversions/*" 2>/dev/null | wc -l'
+                out = subprocess.check_output(cmd, shell=True, timeout=10).decode()
+                pts.append((now, 'monica', 'obsidian_conflicts', float(int(out.strip()))))
+            except Exception:
+                pass
+            break
+
+    # 4. Moodle volume size (MB)
+    try:
+        cmd = "docker exec services-moodle-1 du -sb /bitnami/moodledata 2>/dev/null"
+        out = subprocess.check_output(cmd, shell=True, timeout=15).decode()
+        mb = round(int(out.split()[0]) / (1024 * 1024), 2)
+        pts.append((now, 'monica', 'moodle_volume_mb', float(mb)))
+    except Exception:
+        pass
+
+    # 5. CI/CD Metrics DB size (MB)
+    for p in ["/services/cicd-manager/metrics_history.db", "/root/services/cicd-manager/metrics_history.db"]:
+        if os.path.exists(p):
+            mb = round(os.path.getsize(p) / (1024 * 1024), 2)
+            pts.append((now, 'monica', 'cicd_metrics_db_mb', float(mb)))
+            break
+
+    return pts
+
+def background_metrics_collector():
+    last_downsample = 0
+    last_storage_sample = 0
+    while True:
+        try:
+            now = int(time.time())
+            points = []
+            
+            # 1. Collect Monica metrics
+            try:
+                cpu_p = psutil.cpu_percent(interval=None)
+                ram_mem = psutil.virtual_memory()
+                swap_mem = psutil.swap_memory()
+                points.append((now, 'monica', 'cpu', float(cpu_p)))
+                points.append((now, 'monica', 'ram', float(ram_mem.percent)))
+                points.append((now, 'monica', 'swap', float(swap_mem.percent)))
+            except Exception as me:
+                pass
+
+            # 2. Collect AI141 metrics
+            try:
+                ai141_token = os.environ.get('AI141_API_TOKEN', 'bf6dbcac13dc233d9d913b563cb82fca09a5c9e6ce9bf42d')
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (compatible; CICDManager/1.0)',
+                    'Authorization': f'Bearer {ai141_token}'
+                }
+                c, resp = http_request('https://ai141.pp.ua/api/status', headers=headers, timeout=3)
+                if c == 200 and isinstance(resp, dict):
+                    sys_info = resp.get('system', {})
+                    if 'cpu' in sys_info:
+                        points.append((now, 'ai141', 'cpu', float(sys_info['cpu'])))
+                    if 'ram' in sys_info:
+                        points.append((now, 'ai141', 'ram', float(sys_info['ram'])))
+                    
+                    gpus = sys_info.get('gpus', [])
+                    for i, g in enumerate(gpus):
+                        points.append((now, 'ai141', f'gpu{i}_load', float(g.get('load', 0))))
+                        points.append((now, 'ai141', f'gpu{i}_mem', float(g.get('memory', 0))))
+                        points.append((now, 'ai141', f'gpu{i}_temp', float(g.get('temp', 0))))
+            except Exception as aie:
+                pass
+
+            # 3. Storage & sync metrics (every 5 minutes)
+            if now - last_storage_sample >= 300:
+                try:
+                    s_pts = collect_storage_metrics(now)
+                    if s_pts:
+                        points.extend(s_pts)
+                    last_storage_sample = now
+                except Exception as se:
+                    logging.error(f"Error collecting storage metrics: {se}")
+
+            if points:
+                metrics_history.record_points(points)
+
+            # Downsample and cleanup once an hour
+            if now - last_downsample > 3600:
+                metrics_history.downsample_and_cleanup()
+                last_downsample = now
+
+        except Exception as e:
+            logging.error(f"Error in metrics loop: {e}")
+
+        time.sleep(30)
+
+# Start background metrics collector thread
+threading.Thread(target=background_metrics_collector, daemon=True).start()
+
+@app.route('/api/cicd/status')
+@login_required
+def api_cicd_status():
+    """Get status and metrics database size for CI/CD Manager."""
+    db_size_mb = 0.0
+    db_size_str = "--"
+    for p in ["/services/cicd-manager/metrics_history.db", "/root/services/cicd-manager/metrics_history.db"]:
+        if os.path.exists(p):
+            try:
+                sz = os.path.getsize(p)
+                db_size_mb = round(sz / (1024 * 1024), 2)
+                if sz < 1024 * 1024:
+                    db_size_str = f"{round(sz / 1024, 1)} KB"
+                else:
+                    db_size_str = f"{db_size_mb} MB"
+                break
+            except Exception:
+                pass
+
+    return jsonify({
+        'success': True,
+        'version': "1.0.0",
+        'db_size_mb': db_size_mb,
+        'db_size_str': db_size_str,
+        'retention_policy': "Raw: 24h, Hourly: 30d, Daily: 365d (Downsampled)"
+    })
+
+@app.route('/api/metrics/history')
+@login_required
+def api_metrics_history():
+    host = request.args.get('host', 'monica')
+    metric = request.args.get('metric', 'cpu')
+    range_key = request.args.get('range', '24h')
+    data = metrics_history.query_history(host, metric, range_key)
+    return jsonify({'success': True, 'host': host, 'metric': metric, 'range': range_key, 'points': data})
 
 
 if __name__ == '__main__':
