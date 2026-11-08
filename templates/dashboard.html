@@ -1978,6 +1978,10 @@ window.fetchPo2Bot = function() {
 let currentPo2SelectedUserId = null;
 let po2DialogSearchTimeout = null;
 let po2CachedUsers = [];
+let po2UsersOffset = 0;
+let po2UsersHasMore = true;
+let po2UsersLoading = false;
+const PO2_PAGE_SIZE = 50;
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -1992,25 +1996,55 @@ function escapeHtml(str) {
 window.onPo2DialogSearch = function(val) {
     clearTimeout(po2DialogSearchTimeout);
     po2DialogSearchTimeout = setTimeout(() => {
-        window.fetchPo2BotDialogs(val);
+        window.fetchPo2BotDialogs(val, false);
     }, 300);
 };
 
-window.fetchPo2BotDialogs = function(searchVal) {
+window.fetchPo2BotDialogs = function(searchVal, append) {
+    if (append && (po2UsersLoading || !po2UsersHasMore)) return;
+
+    if (!append) {
+        po2UsersOffset = 0;
+        po2UsersHasMore = true;
+        po2CachedUsers = [];
+    }
+
     const searchInput = document.getElementById('po2-dialog-search');
     const searchParam = typeof searchVal === 'string' ? searchVal : (searchInput ? searchInput.value : '');
-    fetch('/api/po2bot/dialogs?search=' + encodeURIComponent(searchParam))
+
+    po2UsersLoading = true;
+    const listEl = document.getElementById('po2-dialogs-list');
+    if (listEl && !append) {
+        listEl.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 3rem 0; font-size: 0.88rem;">Завантаження...</div>';
+    }
+
+    fetch(`/api/po2bot/dialogs?search=${encodeURIComponent(searchParam)}&limit=${PO2_PAGE_SIZE}&offset=${po2UsersOffset}`)
         .then(r => r.json())
         .then(data => {
+            po2UsersLoading = false;
             if (!data.success) {
                 console.warn('Could not fetch po2bot dialogs:', data.error);
                 return;
             }
-            po2CachedUsers = data.users || [];
-            const countEl = document.getElementById('po2-dialogs-count');
-            if (countEl) countEl.textContent = po2CachedUsers.length;
+            const incomingUsers = data.users || [];
+            if (incomingUsers.length < PO2_PAGE_SIZE) {
+                po2UsersHasMore = false;
+            }
+            po2UsersOffset += incomingUsers.length;
 
-            const listEl = document.getElementById('po2-dialogs-list');
+            if (append) {
+                const existingIds = new Set(po2CachedUsers.map(u => u.user_id));
+                const filtered = incomingUsers.filter(u => !existingIds.has(u.user_id));
+                po2CachedUsers = po2CachedUsers.concat(filtered);
+            } else {
+                po2CachedUsers = incomingUsers;
+            }
+
+            const countEl = document.getElementById('po2-dialogs-count');
+            if (countEl) {
+                countEl.textContent = po2CachedUsers.length + (po2UsersHasMore ? '+' : '');
+            }
+
             if (!listEl) return;
 
             if (po2CachedUsers.length === 0) {
@@ -2020,7 +2054,7 @@ window.fetchPo2BotDialogs = function(searchVal) {
                 return;
             }
 
-            listEl.innerHTML = po2CachedUsers.map(u => {
+            let usersHtml = po2CachedUsers.map(u => {
                 const isSelected = (currentPo2SelectedUserId === u.user_id);
                 const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || ('ID: ' + u.user_id);
                 const aptBadge = u.apartment ? `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.72rem;">кв. ${escapeHtml(u.apartment)}</span>` : '';
@@ -2046,8 +2080,34 @@ window.fetchPo2BotDialogs = function(searchVal) {
                     </div>
                 `;
             }).join('');
+
+            if (po2UsersHasMore) {
+                usersHtml += `
+                    <div id="po2-load-more-btn" onclick="fetchPo2BotDialogs(undefined, true)" 
+                         style="text-align: center; color: #60a5fa; cursor: pointer; padding: 0.5rem; font-size: 0.8rem; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px dashed rgba(255,255,255,0.15);">
+                        ⬇️ Завантажити ще (50)...
+                    </div>
+                `;
+            }
+
+            listEl.innerHTML = usersHtml;
+
+            // Bind infinite scroll once
+            if (!listEl._scrollBound) {
+                listEl._scrollBound = true;
+                listEl.addEventListener('scroll', () => {
+                    if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 60) {
+                        if (!po2UsersLoading && po2UsersHasMore) {
+                            window.fetchPo2BotDialogs(document.getElementById('po2-dialog-search')?.value || '', true);
+                        }
+                    }
+                });
+            }
         })
-        .catch(console.error);
+        .catch(err => {
+            po2UsersLoading = false;
+            console.error(err);
+        });
 };
 
 window.selectPo2BotDialog = function(userId) {
