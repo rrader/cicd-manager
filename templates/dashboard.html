@@ -1970,14 +1970,16 @@ window.fetchPo2Bot = function() {
         })
         .catch(console.error);
 
-    if (window.fetchPo2BotDialogs) {
-        window.fetchPo2BotDialogs();
+    if (window.fetchPo2BotDialogs && po2CachedUsers.length === 0) {
+        window.fetchPo2BotDialogs('', false, true);
     }
 };
 
 let currentPo2SelectedUserId = null;
 let po2DialogSearchTimeout = null;
 let po2CachedUsers = [];
+let po2LastUsersFingerprint = '';
+let po2LastChatFingerprint = '';
 let po2UsersOffset = 0;
 let po2UsersHasMore = true;
 let po2UsersLoading = false;
@@ -1996,17 +1998,20 @@ function escapeHtml(str) {
 window.onPo2DialogSearch = function(val) {
     clearTimeout(po2DialogSearchTimeout);
     po2DialogSearchTimeout = setTimeout(() => {
-        window.fetchPo2BotDialogs(val, false);
+        window.fetchPo2BotDialogs(val, false, false);
     }, 300);
 };
 
-window.fetchPo2BotDialogs = function(searchVal, append) {
+window.fetchPo2BotDialogs = function(searchVal, append, isSilent) {
     if (append && (po2UsersLoading || !po2UsersHasMore)) return;
 
     if (!append) {
         po2UsersOffset = 0;
         po2UsersHasMore = true;
-        po2CachedUsers = [];
+        if (!isSilent) {
+            po2CachedUsers = [];
+            po2LastUsersFingerprint = '';
+        }
     }
 
     const searchInput = document.getElementById('po2-dialog-search');
@@ -2014,7 +2019,7 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
 
     po2UsersLoading = true;
     const listEl = document.getElementById('po2-dialogs-list');
-    if (listEl && !append) {
+    if (listEl && !append && !isSilent && po2CachedUsers.length === 0) {
         listEl.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 3rem 0; font-size: 0.88rem;">Завантаження...</div>';
     }
 
@@ -2037,6 +2042,12 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
                 const filtered = incomingUsers.filter(u => !existingIds.has(u.user_id));
                 po2CachedUsers = po2CachedUsers.concat(filtered);
             } else {
+                // Check fingerprint to avoid unnecessary DOM redraw and flicker
+                const newFingerprint = incomingUsers.map(u => `${u.user_id}:${u.last_message_at}:${u.last_message_text}:${u.apartment}`).join('|');
+                if (isSilent && po2LastUsersFingerprint === newFingerprint && listEl && listEl.children.length > 0) {
+                    return; // 100% identical data, do not touch DOM
+                }
+                po2LastUsersFingerprint = newFingerprint;
                 po2CachedUsers = incomingUsers;
             }
 
@@ -2054,6 +2065,8 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
                 return;
             }
 
+            const savedScroll = listEl.scrollTop;
+
             let usersHtml = po2CachedUsers.map(u => {
                 const isSelected = (currentPo2SelectedUserId === u.user_id);
                 const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || ('ID: ' + u.user_id);
@@ -2064,7 +2077,7 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
                 const activeStyle = isSelected ? 'background: rgba(59, 130, 246, 0.2); border-color: #3b82f6;' : 'background: rgba(15, 23, 42, 0.6); border-color: var(--border-color);';
 
                 return `
-                    <div onclick="selectPo2BotDialog(${u.user_id})" style="${activeStyle} border: 1px solid; border-radius: 6px; padding: 0.6rem 0.75rem; cursor: pointer; transition: all 0.15s ease;">
+                    <div class="po2-user-item" data-user-id="${u.user_id}" onclick="selectPo2BotDialog(${u.user_id})" style="${activeStyle} border: 1px solid; border-radius: 6px; padding: 0.6rem 0.75rem; cursor: pointer; transition: all 0.15s ease;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
                             <span style="font-weight: 600; color: #fff; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;">${escapeHtml(fullName)}</span>
                             <span style="font-size: 0.72rem; color: var(--text-dim);">${timeStr}</span>
@@ -2083,7 +2096,7 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
 
             if (po2UsersHasMore) {
                 usersHtml += `
-                    <div id="po2-load-more-btn" onclick="fetchPo2BotDialogs(undefined, true)" 
+                    <div id="po2-load-more-btn" onclick="fetchPo2BotDialogs(undefined, true, false)" 
                          style="text-align: center; color: #60a5fa; cursor: pointer; padding: 0.5rem; font-size: 0.8rem; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px dashed rgba(255,255,255,0.15);">
                         ⬇️ Завантажити ще (50)...
                     </div>
@@ -2091,6 +2104,7 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
             }
 
             listEl.innerHTML = usersHtml;
+            listEl.scrollTop = savedScroll;
 
             // Bind infinite scroll once
             if (!listEl._scrollBound) {
@@ -2098,7 +2112,7 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
                 listEl.addEventListener('scroll', () => {
                     if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 60) {
                         if (!po2UsersLoading && po2UsersHasMore) {
-                            window.fetchPo2BotDialogs(document.getElementById('po2-dialog-search')?.value || '', true);
+                            window.fetchPo2BotDialogs(document.getElementById('po2-dialog-search')?.value || '', true, false);
                         }
                     }
                 });
@@ -2108,6 +2122,64 @@ window.fetchPo2BotDialogs = function(searchVal, append) {
             po2UsersLoading = false;
             console.error(err);
         });
+};
+
+window.renderPo2ChatMessages = function(msgs) {
+    return msgs.map(m => {
+        const isIncoming = (m.direction === 'in');
+        const isAdmin = (m.direction === 'out_admin' || m.sender_type === 'admin');
+
+        let bubbleBg = 'background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);';
+        let alignStyle = 'align-self: flex-start; margin-right: 15%;';
+        let senderTag = `<span style="color: #94a3b8; font-weight: 600; font-size: 0.75rem;">👤 ${escapeHtml(m.sender_name || 'Мешканець')}</span>`;
+
+        if (isAdmin) {
+            bubbleBg = 'background: rgba(6, 78, 59, 0.75); border: 1px solid rgba(16, 185, 129, 0.3);';
+            alignStyle = 'align-self: flex-end; margin-left: 15%;';
+            senderTag = `<span style="color: #34d399; font-weight: 600; font-size: 0.75rem;">✅ Адмін: ${escapeHtml(m.sender_name || 'Адміністратор')}</span>`;
+        } else if (!isIncoming) {
+            bubbleBg = 'background: rgba(30, 58, 138, 0.75); border: 1px solid rgba(59, 130, 246, 0.3);';
+            alignStyle = 'align-self: flex-end; margin-left: 15%;';
+            senderTag = `<span style="color: #60a5fa; font-weight: 600; font-size: 0.75rem;">🤖 Po2Bot</span>`;
+        }
+
+        let mediaHtml = '';
+        if (m.media_path) {
+            const filename = m.media_path.split('/').pop();
+            const ext = filename.split('.').pop().toLowerCase();
+            const mediaUrl = `/api/po2bot/media/${m.user_id}/${encodeURIComponent(filename)}`;
+            if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                mediaHtml = `
+                    <div style="margin-top: 0.4rem;">
+                        <a href="${mediaUrl}" target="_blank" title="Відкрити оригінал фото">
+                            <img src="${mediaUrl}" style="max-width: 240px; max-height: 220px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); display: block;" loading="lazy">
+                        </a>
+                    </div>
+                `;
+            } else {
+                mediaHtml = `
+                    <div style="margin-top: 0.4rem;">
+                        <a href="${mediaUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 0.4rem; color: #60a5fa; text-decoration: none; font-size: 0.82rem; background: rgba(255,255,255,0.06); padding: 0.35rem 0.6rem; border-radius: 4px;">
+                            📄 ${escapeHtml(filename)} ↗
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
+        const timeStr = m.created_at ? m.created_at.substring(11, 16) : '';
+
+        return `
+            <div style="${alignStyle} ${bubbleBg} border-radius: 8px; padding: 0.6rem 0.85rem; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                <div style="display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem;">
+                    ${senderTag}
+                    <span style="font-size: 0.7rem; color: var(--text-dim);">${timeStr}</span>
+                </div>
+                <div style="font-size: 0.88rem; color: #f1f5f9; line-height: 1.4; word-break: break-word; white-space: pre-wrap;">${escapeHtml(m.text || '')}</div>
+                ${mediaHtml}
+            </div>
+        `;
+    }).join('');
 };
 
 window.selectPo2BotDialog = function(userId) {
@@ -2129,85 +2201,67 @@ window.selectPo2BotDialog = function(userId) {
         headerMeta.innerHTML = parts.join(' · ');
     }
 
-    // Refresh active style in list
-    const searchInput = document.getElementById('po2-dialog-search');
-    window.fetchPo2BotDialogs(searchInput ? searchInput.value : '');
+    // Instantly highlight selected user in DOM without re-fetching list
+    const listEl = document.getElementById('po2-dialogs-list');
+    if (listEl) {
+        listEl.querySelectorAll('.po2-user-item').forEach(el => {
+            const isSel = (el.getAttribute('data-user-id') == userId);
+            el.style.background = isSel ? 'rgba(59, 130, 246, 0.2)' : 'rgba(15, 23, 42, 0.6)';
+            el.style.borderColor = isSel ? '#3b82f6' : 'var(--border-color)';
+        });
+    }
 
     const chatBox = document.getElementById('po2-chat-messages');
     if (chatBox) {
         chatBox.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 3rem 0; font-size: 0.88rem;">Завантаження повідомлень...</div>';
     }
 
+    po2LastChatFingerprint = '';
     fetch('/api/po2bot/dialogs/' + userId)
         .then(r => r.json())
         .then(data => {
             if (!data.success || !chatBox) return;
             const msgs = data.messages || [];
+            po2LastChatFingerprint = msgs.map(m => `${m.id}:${m.created_at}`).join('|');
             if (msgs.length === 0) {
                 chatBox.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 5rem 1rem; font-size: 0.9rem;">Немає повідомлень у цьому діалозі</div>';
                 return;
             }
 
-            chatBox.innerHTML = msgs.map(m => {
-                const isIncoming = (m.direction === 'in');
-                const isAdmin = (m.direction === 'out_admin' || m.sender_type === 'admin');
-
-                let bubbleBg = 'background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);';
-                let alignStyle = 'align-self: flex-start; margin-right: 15%;';
-                let senderTag = `<span style="color: #94a3b8; font-weight: 600; font-size: 0.75rem;">👤 ${escapeHtml(m.sender_name || 'Мешканець')}</span>`;
-
-                if (isAdmin) {
-                    bubbleBg = 'background: rgba(6, 78, 59, 0.75); border: 1px solid rgba(16, 185, 129, 0.3);';
-                    alignStyle = 'align-self: flex-end; margin-left: 15%;';
-                    senderTag = `<span style="color: #34d399; font-weight: 600; font-size: 0.75rem;">✅ Адмін: ${escapeHtml(m.sender_name || 'Адміністратор')}</span>`;
-                } else if (!isIncoming) {
-                    bubbleBg = 'background: rgba(30, 58, 138, 0.75); border: 1px solid rgba(59, 130, 246, 0.3);';
-                    alignStyle = 'align-self: flex-end; margin-left: 15%;';
-                    senderTag = `<span style="color: #60a5fa; font-weight: 600; font-size: 0.75rem;">🤖 Po2Bot</span>`;
-                }
-
-                let mediaHtml = '';
-                if (m.media_path) {
-                    const filename = m.media_path.split('/').pop();
-                    const ext = filename.split('.').pop().toLowerCase();
-                    const mediaUrl = `/api/po2bot/media/${m.user_id}/${encodeURIComponent(filename)}`;
-                    if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-                        mediaHtml = `
-                            <div style="margin-top: 0.4rem;">
-                                <a href="${mediaUrl}" target="_blank" title="Відкрити оригінал фото">
-                                    <img src="${mediaUrl}" style="max-width: 240px; max-height: 220px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); display: block;" loading="lazy">
-                                </a>
-                            </div>
-                        `;
-                    } else {
-                        mediaHtml = `
-                            <div style="margin-top: 0.4rem;">
-                                <a href="${mediaUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 0.4rem; color: #60a5fa; text-decoration: none; font-size: 0.82rem; background: rgba(255,255,255,0.06); padding: 0.35rem 0.6rem; border-radius: 4px;">
-                                    📄 ${escapeHtml(filename)} ↗
-                                </a>
-                            </div>
-                        `;
-                    }
-                }
-
-                const timeStr = m.created_at ? m.created_at.substring(11, 16) : '';
-
-                return `
-                    <div style="${alignStyle} ${bubbleBg} border-radius: 8px; padding: 0.6rem 0.85rem; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                        <div style="display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem;">
-                            ${senderTag}
-                            <span style="font-size: 0.7rem; color: var(--text-dim);">${timeStr}</span>
-                        </div>
-                        <div style="font-size: 0.88rem; color: #f1f5f9; line-height: 1.4; word-break: break-word; white-space: pre-wrap;">${escapeHtml(m.text || '')}</div>
-                        ${mediaHtml}
-                    </div>
-                `;
-            }).join('');
-
+            chatBox.innerHTML = window.renderPo2ChatMessages(msgs);
             chatBox.scrollTop = chatBox.scrollHeight;
         })
         .catch(console.error);
 };
+
+// Gentle silent poller every 15s for new messages/dialogs without flicker
+setInterval(() => {
+    if (typeof currentActiveTab !== 'undefined' && currentActiveTab === 'po2bot') {
+        const searchInput = document.getElementById('po2-dialog-search');
+        if (!searchInput || !searchInput.value) {
+            window.fetchPo2BotDialogs('', false, true);
+        }
+        if (currentPo2SelectedUserId) {
+            fetch('/api/po2bot/dialogs/' + currentPo2SelectedUserId)
+                .then(r => r.json())
+                .then(data => {
+                    const chatBox = document.getElementById('po2-chat-messages');
+                    if (!data.success || !chatBox) return;
+                    const msgs = data.messages || [];
+                    const newChatFp = msgs.map(m => `${m.id}:${m.created_at}`).join('|');
+                    if (newChatFp && newChatFp !== po2LastChatFingerprint) {
+                        po2LastChatFingerprint = newChatFp;
+                        const isNearBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < 80;
+                        chatBox.innerHTML = window.renderPo2ChatMessages(msgs);
+                        if (isNearBottom) {
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    }
+                })
+                .catch(console.error);
+        }
+    }
+}, 15000);
 
 // 5. MEET STREAMER
 let currentMeetInMeeting = false;
