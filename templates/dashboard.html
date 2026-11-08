@@ -2125,7 +2125,18 @@ window.fetchPo2BotDialogs = function(searchVal, append, isSilent) {
 };
 
 window.renderPo2ChatMessages = function(msgs) {
-    return msgs.map(m => {
+    if (!Array.isArray(msgs)) return '';
+    // Stable chronological sort by created_at (seconds precision) and id
+    const sorted = msgs.slice().sort((a, b) => {
+        const timeA = a.created_at || '';
+        const timeB = b.created_at || '';
+        if (timeA !== timeB) {
+            return timeA.localeCompare(timeB);
+        }
+        return (a.id || 0) - (b.id || 0);
+    });
+
+    return sorted.map(m => {
         const isIncoming = (m.direction === 'in');
         const isAdmin = (m.direction === 'out_admin' || m.sender_type === 'admin');
 
@@ -2167,7 +2178,13 @@ window.renderPo2ChatMessages = function(msgs) {
             }
         }
 
-        const timeStr = m.created_at ? m.created_at.substring(11, 16) : '';
+        let timeStr = '';
+        if (m.created_at) {
+            const timePart = m.created_at.length >= 19 ? m.created_at.substring(11, 19) : m.created_at.substring(11);
+            const datePart = m.created_at.substring(0, 10);
+            const todayStr = new Date().toISOString().substring(0, 10);
+            timeStr = (datePart && datePart !== todayStr) ? `${datePart} ${timePart}` : timePart;
+        }
 
         return `
             <div style="${alignStyle} ${bubbleBg} border-radius: 8px; padding: 0.6rem 0.85rem; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
