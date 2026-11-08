@@ -10,13 +10,16 @@ Manages:
 """
 
 import metrics_history
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, Response, send_file
 import os
 import subprocess
 import yaml
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
+import mimetypes
+from werkzeug.utils import secure_filename
 import base64
 import time
 import threading
@@ -63,6 +66,7 @@ DOCKER_COMPOSE_CMD = get_docker_compose_cmd()
 # Microservice Endpoints
 LIGHT_BOT_URL = os.environ.get('LIGHT_BOT_URL', 'http://light-bot:5000')
 PO2BOT_URL = os.environ.get('PO2BOT_URL', 'http://po2bot:8088')
+PO2BOT_API_TOKEN = os.environ.get('PO2BOT_API_TOKEN') or os.environ.get('PO2BOT_API_SECRET') or 'po2_secret_token_change_me'
 MEET_STREAMER_URL = os.environ.get('MEET_STREAMER_URL', 'http://meet-streamer:8090')
 TEMPLATES_FILE = os.environ.get('TEMPLATES_FILE', os.path.join(SERVICES_DIR, 'cicd-manager', 'banner_templates.json'))
 AIR_ALERT_STATE_FILE = os.environ.get('AIR_ALERT_STATE_FILE', os.path.join(SERVICES_DIR, 'cicd-manager', 'air_alert_state.json') if os.path.exists(SERVICES_DIR) else '/app/air_alert_state.json')
@@ -1319,6 +1323,66 @@ def api_po2bot_pending():
         data['success'] = True
         return jsonify(data)
     return jsonify({'success': True, 'pending': []})
+
+
+@app.route('/api/po2bot/dialogs')
+@login_required
+def api_po2bot_dialogs():
+    """Proxy Po2Bot dialogs list with search and pagination."""
+    search = request.args.get('search', '')
+    limit = request.args.get('limit', '50')
+    offset = request.args.get('offset', '0')
+    query_params = urllib.parse.urlencode({'search': search, 'limit': limit, 'offset': offset})
+    url = f"{PO2BOT_URL}/api/dialogs?{query_params}"
+    headers = {'Authorization': f'Bearer {PO2BOT_API_TOKEN}'}
+    status_code, data = http_request(url, headers=headers, timeout=5)
+    if status_code != 200 or not isinstance(data, dict):
+        return jsonify({'success': False, 'users': [], 'error': str(data)}), status_code if status_code else 500
+    return jsonify(data)
+
+
+@app.route('/api/po2bot/dialogs/<int:user_id>')
+@login_required
+def api_po2bot_dialog_messages(user_id):
+    """Proxy Po2Bot dialog messages for specific user."""
+    limit = request.args.get('limit', '100')
+    offset = request.args.get('offset', '0')
+    query_params = urllib.parse.urlencode({'limit': limit, 'offset': offset})
+    url = f"{PO2BOT_URL}/api/dialogs/{user_id}?{query_params}"
+    headers = {'Authorization': f'Bearer {PO2BOT_API_TOKEN}'}
+    status_code, data = http_request(url, headers=headers, timeout=5)
+    if status_code != 200 or not isinstance(data, dict):
+        return jsonify({'success': False, 'messages': [], 'error': str(data)}), status_code if status_code else 500
+    return jsonify(data)
+
+
+@app.route('/api/po2bot/media/<int:user_id>/<filename>')
+@login_required
+def api_po2bot_media(user_id, filename):
+    """Serve or proxy uploaded documents and photos."""
+    safe_filename = secure_filename(filename)
+    if not safe_filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+
+    # 1. Check local filesystem mount if present (/services/po2bot/data/uploads/...)
+    local_path = os.path.join(SERVICES_DIR, 'po2bot', 'data', 'uploads', str(user_id), safe_filename)
+    if os.path.isfile(local_path):
+        mimetype, _ = mimetypes.guess_type(local_path)
+        return send_file(local_path, mimetype=mimetype or 'application/octet-stream')
+
+    # 2. Proxy from PO2BOT_URL
+    try:
+        url = f"{PO2BOT_URL}/api/media/{user_id}/{urllib.parse.quote(safe_filename)}"
+        req = urllib.request.Request(
+            url,
+            headers={'Authorization': f'Bearer {PO2BOT_API_TOKEN}'}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+            body = resp.read()
+            return Response(body, mimetype=content_type)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
 
 
 # ==========================================

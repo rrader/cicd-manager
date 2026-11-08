@@ -1273,6 +1273,48 @@
             </div>
         </div>
     </div>
+
+    <!-- Dialogs & Chat History Card -->
+    <div class="bot-card" style="margin-top: 1.5rem;">
+        <div class="bot-card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+            <h3><span>💬</span> Діалоги бота з мешканцями</h3>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex: 1; justify-content: flex-end; min-width: 260px;">
+                <input type="text" id="po2-dialog-search" placeholder="🔍 Пошук (ім'я, кв., телефон)..." 
+                       style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 0.4rem 0.75rem; color: #fff; font-size: 0.85rem; width: 100%; max-width: 260px;"
+                       oninput="onPo2DialogSearch(this.value)">
+                <button class="btn btn-logs" onclick="fetchPo2BotDialogs()" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;">🔄 Оновити</button>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 1rem; min-height: 520px; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1rem;">
+            <!-- Left: Dialogs list -->
+            <div style="display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.08); padding-right: 0.8rem;">
+                <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: center;">
+                    <span>Користувачі</span>
+                    <span id="po2-dialogs-count" style="background: rgba(255,255,255,0.08); padding: 0.1rem 0.5rem; border-radius: 10px;">0</span>
+                </div>
+                <div id="po2-dialogs-list" style="overflow-y: auto; max-height: 520px; display: flex; flex-direction: column; gap: 0.4rem; padding-right: 0.2rem;">
+                    <div style="text-align: center; color: var(--text-dim); padding: 3rem 0; font-size: 0.88rem;">Немає діалогів або завантаження...</div>
+                </div>
+            </div>
+
+            <!-- Right: Chat messages -->
+            <div style="display: flex; flex-direction: column; min-height: 520px;">
+                <div id="po2-chat-header" style="padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
+                    <div id="po2-chat-user-info" style="font-size: 0.95rem; font-weight: 600; color: #fff;">
+                        💬 Оберіть діалог зі списку
+                    </div>
+                    <div id="po2-chat-user-meta" style="font-size: 0.82rem; color: var(--text-dim); display: flex; gap: 0.75rem; align-items: center;"></div>
+                </div>
+
+                <div id="po2-chat-messages" style="flex: 1; overflow-y: auto; max-height: 480px; padding: 1rem 0.5rem; display: flex; flex-direction: column; gap: 0.65rem;">
+                    <div style="text-align: center; color: var(--text-dim); padding: 5rem 1rem; font-size: 0.9rem;">
+                        💬 Оберіть мешканця зі списку зліва, щоб переглянути листування
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- TAB 5: MEET STREAMER -->
@@ -1925,6 +1967,184 @@ window.fetchPo2Bot = function() {
             } else {
                 list.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 2rem 0;">Немає нерозглянутих заявок</p>';
             }
+        })
+        .catch(console.error);
+
+    if (window.fetchPo2BotDialogs) {
+        window.fetchPo2BotDialogs();
+    }
+};
+
+let currentPo2SelectedUserId = null;
+let po2DialogSearchTimeout = null;
+let po2CachedUsers = [];
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+window.onPo2DialogSearch = function(val) {
+    clearTimeout(po2DialogSearchTimeout);
+    po2DialogSearchTimeout = setTimeout(() => {
+        window.fetchPo2BotDialogs(val);
+    }, 300);
+};
+
+window.fetchPo2BotDialogs = function(searchVal) {
+    const searchInput = document.getElementById('po2-dialog-search');
+    const searchParam = typeof searchVal === 'string' ? searchVal : (searchInput ? searchInput.value : '');
+    fetch('/api/po2bot/dialogs?search=' + encodeURIComponent(searchParam))
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                console.warn('Could not fetch po2bot dialogs:', data.error);
+                return;
+            }
+            po2CachedUsers = data.users || [];
+            const countEl = document.getElementById('po2-dialogs-count');
+            if (countEl) countEl.textContent = po2CachedUsers.length;
+
+            const listEl = document.getElementById('po2-dialogs-list');
+            if (!listEl) return;
+
+            if (po2CachedUsers.length === 0) {
+                listEl.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 3rem 0; font-size: 0.88rem;">' +
+                    (searchParam ? 'Нічого не знайдено' : 'Ще немає збережених повідомлень') +
+                    '</div>';
+                return;
+            }
+
+            listEl.innerHTML = po2CachedUsers.map(u => {
+                const isSelected = (currentPo2SelectedUserId === u.user_id);
+                const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username || ('ID: ' + u.user_id);
+                const aptBadge = u.apartment ? `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.72rem;">кв. ${escapeHtml(u.apartment)}</span>` : '';
+                const typeBadge = u.user_type ? `<span style="background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.72rem;">${escapeHtml(u.user_type)}</span>` : '';
+                const lastSnippet = u.last_message_text ? escapeHtml(u.last_message_text) : 'Немає тексту';
+                const timeStr = u.last_message_at ? u.last_message_at.substring(11, 16) : '';
+                const activeStyle = isSelected ? 'background: rgba(59, 130, 246, 0.2); border-color: #3b82f6;' : 'background: rgba(15, 23, 42, 0.6); border-color: var(--border-color);';
+
+                return `
+                    <div onclick="selectPo2BotDialog(${u.user_id})" style="${activeStyle} border: 1px solid; border-radius: 6px; padding: 0.6rem 0.75rem; cursor: pointer; transition: all 0.15s ease;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                            <span style="font-weight: 600; color: #fff; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;">${escapeHtml(fullName)}</span>
+                            <span style="font-size: 0.72rem; color: var(--text-dim);">${timeStr}</span>
+                        </div>
+                        <div style="display: flex; gap: 0.35rem; align-items: center; margin-bottom: 0.25rem;">
+                            ${aptBadge}
+                            ${typeBadge}
+                            ${u.username ? `<span style="color: var(--text-dim); font-size: 0.75rem;">@${escapeHtml(u.username)}</span>` : ''}
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${lastSnippet}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        })
+        .catch(console.error);
+};
+
+window.selectPo2BotDialog = function(userId) {
+    currentPo2SelectedUserId = userId;
+    const user = po2CachedUsers.find(u => u.user_id === userId);
+
+    const headerInfo = document.getElementById('po2-chat-user-info');
+    const headerMeta = document.getElementById('po2-chat-user-meta');
+    if (headerInfo) {
+        const name = user ? ([user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || ('ID: ' + user.user_id)) : ('ID: ' + userId);
+        headerInfo.innerHTML = `👤 ${escapeHtml(name)}`;
+    }
+    if (headerMeta && user) {
+        const parts = [];
+        if (user.apartment) parts.push(`🏠 кв. ${escapeHtml(user.apartment)}`);
+        if (user.phone) parts.push(`📱 ${escapeHtml(user.phone)}`);
+        if (user.username) parts.push(`<a href="https://t.me/${encodeURIComponent(user.username)}" target="_blank" style="color: #60a5fa; text-decoration: none;">@${escapeHtml(user.username)} ↗</a>`);
+        parts.push(`<span style="color: var(--text-dim);">ID: ${user.user_id}</span>`);
+        headerMeta.innerHTML = parts.join(' · ');
+    }
+
+    // Refresh active style in list
+    const searchInput = document.getElementById('po2-dialog-search');
+    window.fetchPo2BotDialogs(searchInput ? searchInput.value : '');
+
+    const chatBox = document.getElementById('po2-chat-messages');
+    if (chatBox) {
+        chatBox.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 3rem 0; font-size: 0.88rem;">Завантаження повідомлень...</div>';
+    }
+
+    fetch('/api/po2bot/dialogs/' + userId)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success || !chatBox) return;
+            const msgs = data.messages || [];
+            if (msgs.length === 0) {
+                chatBox.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 5rem 1rem; font-size: 0.9rem;">Немає повідомлень у цьому діалозі</div>';
+                return;
+            }
+
+            chatBox.innerHTML = msgs.map(m => {
+                const isIncoming = (m.direction === 'in');
+                const isAdmin = (m.direction === 'out_admin' || m.sender_type === 'admin');
+
+                let bubbleBg = 'background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(255, 255, 255, 0.1);';
+                let alignStyle = 'align-self: flex-start; margin-right: 15%;';
+                let senderTag = `<span style="color: #94a3b8; font-weight: 600; font-size: 0.75rem;">👤 ${escapeHtml(m.sender_name || 'Мешканець')}</span>`;
+
+                if (isAdmin) {
+                    bubbleBg = 'background: rgba(6, 78, 59, 0.75); border: 1px solid rgba(16, 185, 129, 0.3);';
+                    alignStyle = 'align-self: flex-end; margin-left: 15%;';
+                    senderTag = `<span style="color: #34d399; font-weight: 600; font-size: 0.75rem;">✅ Адмін: ${escapeHtml(m.sender_name || 'Адміністратор')}</span>`;
+                } else if (!isIncoming) {
+                    bubbleBg = 'background: rgba(30, 58, 138, 0.75); border: 1px solid rgba(59, 130, 246, 0.3);';
+                    alignStyle = 'align-self: flex-end; margin-left: 15%;';
+                    senderTag = `<span style="color: #60a5fa; font-weight: 600; font-size: 0.75rem;">🤖 Po2Bot</span>`;
+                }
+
+                let mediaHtml = '';
+                if (m.media_path) {
+                    const filename = m.media_path.split('/').pop();
+                    const ext = filename.split('.').pop().toLowerCase();
+                    const mediaUrl = `/api/po2bot/media/${m.user_id}/${encodeURIComponent(filename)}`;
+                    if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                        mediaHtml = `
+                            <div style="margin-top: 0.4rem;">
+                                <a href="${mediaUrl}" target="_blank" title="Відкрити оригінал фото">
+                                    <img src="${mediaUrl}" style="max-width: 240px; max-height: 220px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); display: block;" loading="lazy">
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        mediaHtml = `
+                            <div style="margin-top: 0.4rem;">
+                                <a href="${mediaUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 0.4rem; color: #60a5fa; text-decoration: none; font-size: 0.82rem; background: rgba(255,255,255,0.06); padding: 0.35rem 0.6rem; border-radius: 4px;">
+                                    📄 ${escapeHtml(filename)} ↗
+                                </a>
+                            </div>
+                        `;
+                    }
+                }
+
+                const timeStr = m.created_at ? m.created_at.substring(11, 16) : '';
+
+                return `
+                    <div style="${alignStyle} ${bubbleBg} border-radius: 8px; padding: 0.6rem 0.85rem; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                        <div style="display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem;">
+                            ${senderTag}
+                            <span style="font-size: 0.7rem; color: var(--text-dim);">${timeStr}</span>
+                        </div>
+                        <div style="font-size: 0.88rem; color: #f1f5f9; line-height: 1.4; word-break: break-word; white-space: pre-wrap;">${escapeHtml(m.text || '')}</div>
+                        ${mediaHtml}
+                    </div>
+                `;
+            }).join('');
+
+            chatBox.scrollTop = chatBox.scrollHeight;
         })
         .catch(console.error);
 };
