@@ -1584,10 +1584,10 @@ window.fetchMetrics = function() {
             if (!data.success) return;
 
             // Topbar
-            document.getElementById('top-cpu').textContent = `${data.cpu.percent}%`;
-            document.getElementById('top-ram').textContent = `${data.ram.percent}%`;
-            document.getElementById('top-swap').textContent = `${data.swap.percent}%`;
-            document.getElementById('top-disk').textContent = `${data.disk.percent}%`;
+            const tCpu = document.getElementById('top-cpu'); if (tCpu) tCpu.textContent = `${data.cpu.percent}%`;
+            const tRam = document.getElementById('top-ram'); if (tRam) tRam.textContent = `${data.ram.percent}%`;
+            const tSwap = document.getElementById('top-swap'); if (tSwap) tSwap.textContent = `${data.swap.percent}%`;
+            const tDisk = document.getElementById('top-disk'); if (tDisk) tDisk.textContent = `${data.disk.percent}%`;
 
             // Gauges
             document.getElementById('metric-cpu-cores').textContent = `${data.cpu.count} cores`;
