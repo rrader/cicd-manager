@@ -363,10 +363,17 @@
         <aside class="sidebar">
             <div class="sidebar-section-title">Головне</div>
             
-            <div class="nav-item active" onclick="switchTab('metrics')" id="nav-metrics">
-                <span class="icon">📊</span>
-                <span>Метрики</span>
+            <div class="nav-item active" onclick="switchTab('compose')" id="nav-compose">
+                <span class="icon">🛠</span>
+                <span>CI/CD Сервіси</span>
+                <span class="badge" id="services-badge">{{ services|length }}</span>
             </div>
+
+            <a href="https://beszel.rmn.pp.ua" target="_blank" class="nav-item" style="text-decoration: none; color: inherit;">
+                <span class="icon">🛰️</span>
+                <span>Beszel Hub</span>
+                <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Метрики ↗</span>
+            </a>
 
             <div class="nav-item" onclick="switchTab('domains')" id="nav-domains">
                 <span class="icon">🌐</span>
@@ -428,12 +435,6 @@
                 <span class="badge" id="cicd-nav-badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">Engine</span>
             </div>
 
-            <div class="nav-item" onclick="switchTab('compose')" id="nav-compose">
-                <span class="icon">🛠</span>
-                <span>CI/CD Сервіси</span>
-                <span class="badge" id="services-badge">{{ services|length }}</span>
-            </div>
-
             <div class="sidebar-section-title">Витрати & Інтеграції</div>
 
             <div class="nav-item" onclick="switchTab('ai')" id="nav-ai">
@@ -478,7 +479,7 @@
     </div>
 
     <script>
-        let currentActiveTab = 'metrics';
+        let currentActiveTab = 'compose';
         let currentModalTarget = null;
         let currentModalType = null; // 'compose' or 'container'
 
@@ -532,7 +533,7 @@
         }
 
         window.addEventListener('popstate', function(event) {
-            let tab = 'metrics';
+            let tab = 'compose';
             if (event.state && event.state.tab) {
                 tab = event.state.tab;
             } else {
@@ -559,7 +560,7 @@
                 }
             }
             if (!initialTab || !document.getElementById(`tab-content-${initialTab}`)) {
-                initialTab = 'metrics';
+                initialTab = 'compose';
             }
             switchTab(initialTab, false);
         });

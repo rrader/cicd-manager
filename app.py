@@ -599,7 +599,7 @@ def logout():
 @app.route('/dashboard')
 @app.route('/dashboard/<tab>')
 @login_required
-def dashboard(tab='metrics'):
+def dashboard(tab='compose'):
     """Display modern dashboard with tabs and services."""
     username = session.get('username')
     all_services = get_services()
@@ -2278,16 +2278,7 @@ def background_metrics_collector():
             now = int(time.time())
             points = []
             
-            # 1. Collect Monica metrics
-            try:
-                cpu_p = psutil.cpu_percent(interval=0.2)
-                ram_mem = psutil.virtual_memory()
-                swap_mem = psutil.swap_memory()
-                points.append((now, 'monica', 'cpu', float(cpu_p)))
-                points.append((now, 'monica', 'ram', float(ram_mem.percent)))
-                points.append((now, 'monica', 'swap', float(swap_mem.percent)))
-            except Exception as me:
-                pass
+            # 1. Monica host metrics are now monitored natively by Beszel Agent (https://beszel.rmn.pp.ua)
 
             # 2. Collect AI141 metrics
             try:

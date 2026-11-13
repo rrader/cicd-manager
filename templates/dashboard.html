@@ -422,142 +422,23 @@
 {% endblock %}
 
 {% block content %}
-<!-- TAB 1: SYSTEM METRICS -->
-<div class="tab-content active" id="tab-content-metrics">
+<!-- TAB 1: SYSTEM METRICS (DEPRECATED -> BESZEL) -->
+<div class="tab-content" id="tab-content-metrics" style="display: none;">
     <div class="section-header">
         <div>
-            <h2>📊 Системні метрики хоста Monica</h2>
-            <p>Стан процесора, оперативної пам'яті, 4 GB Swap та активних контейнерів Docker</p>
-        </div>
-        <div>
-            <button class="btn btn-logs" onclick="fetchMetrics()">🔄 Оновити метрики</button>
+            <h2>📊 Системні метрики хостів</h2>
+            <p>Моніторинг ресурсів хостів та контейнерів перенесено в Beszel Hub</p>
         </div>
     </div>
-
-    <div class="metrics-gauges-grid">
-        <!-- CPU Gauge -->
-        <div class="gauge-card">
-            <div class="gauge-title">
-                <span>ПРОЦЕСОР (CPU)</span>
-                <span id="metric-cpu-cores">-- cores</span>
-            </div>
-            <div class="gauge-value">
-                <span id="metric-cpu-val">0</span>%
-            </div>
-            <div class="progress-track">
-                <div class="progress-fill" id="metric-cpu-bar" style="width: 0%"></div>
-            </div>
-            <div class="gauge-subtext" id="metric-cpu-sub">Завантаження ядер</div>
-        </div>
-
-        <!-- RAM Gauge -->
-        <div class="gauge-card">
-            <div class="gauge-title">
-                <span>ОПЕРАТИВНА ПАМ'ЯТЬ (RAM)</span>
-                <span id="metric-ram-percent">--%</span>
-            </div>
-            <div class="gauge-value">
-                <span id="metric-ram-used">0</span> <small style="font-size: 1rem; color: var(--text-muted);">/ <span id="metric-ram-total">0</span> GB</small>
-            </div>
-            <div class="progress-track">
-                <div class="progress-fill" id="metric-ram-bar" style="width: 0%"></div>
-            </div>
-            <div class="gauge-subtext" id="metric-ram-sub">Доступно: -- GB</div>
-        </div>
-
-        <!-- SWAP Gauge -->
-        <div class="gauge-card">
-            <div class="gauge-title">
-                <span>SWAP (ФАЙЛ ПІДКАЧКИ 4 GB)</span>
-                <span id="metric-swap-percent">--%</span>
-            </div>
-            <div class="gauge-value">
-                <span id="metric-swap-used">0</span> <small style="font-size: 1rem; color: var(--text-muted);">/ <span id="metric-swap-total">4.0</span> GB</small>
-            </div>
-            <div class="progress-track">
-                <div class="progress-fill" id="metric-swap-bar" style="width: 0%"></div>
-            </div>
-            <div class="gauge-subtext" id="metric-swap-sub">Вільний swap: -- GB</div>
-        </div>
-
-        <!-- DISK Gauge -->
-        <div class="gauge-card">
-            <div class="gauge-title">
-                <span>СИСТЕМНИЙ ДИСК (ROOT)</span>
-                <span id="metric-disk-percent">--%</span>
-            </div>
-            <div class="gauge-value">
-                <span id="metric-disk-used">0</span> <small style="font-size: 1rem; color: var(--text-muted);">/ <span id="metric-disk-total">0</span> GB</small>
-            </div>
-            <div class="progress-track">
-                <div class="progress-fill" id="metric-disk-bar" style="width: 0%"></div>
-            </div>
-            <div class="gauge-subtext" id="metric-disk-sub">Вільно: -- GB</div>
-        </div>
-    </div>
-
-    <!-- Monica Historical Charts Panel -->
-    <div class="panel-card" style="margin-bottom: 2rem;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.25rem;">
-            <div>
-                <h3 style="margin: 0; font-size: 1.15rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
-                    <span>📈</span> Історія навантаження хоста Monica
-                </h3>
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Динаміка процесора, оперативної пам'яті та swap файлу</div>
-            </div>
-            <div style="display: flex; gap: 0.4rem; background: rgba(15, 23, 42, 0.6); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                <button class="btn btn-sm" id="btn-mrange-1h" onclick="setMonicaRange('1h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">1 год</button>
-                <button class="btn btn-sm" id="btn-mrange-6h" onclick="setMonicaRange('6h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">6 год</button>
-                <button class="btn btn-sm btn-up" id="btn-mrange-24h" onclick="setMonicaRange('24h')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">24 год</button>
-                <button class="btn btn-sm" id="btn-mrange-7d" onclick="setMonicaRange('7d')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">7 днів</button>
-                <button class="btn btn-sm" id="btn-mrange-30d" onclick="setMonicaRange('30d')" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">30 днів</button>
-            </div>
-        </div>
-        <div style="position: relative; height: 260px; width: 100%;">
-            <canvas id="monicaHistoryChart"></canvas>
-        </div>
-    </div>
-
-    <!-- AI141 GPU Server Quick Banner -->
-    <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(88, 28, 135, 0.28) 100%); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: var(--radius-lg); padding: 1.15rem 1.4rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="font-size: 2.2rem; background: rgba(168, 85, 247, 0.15); width: 54px; height: 54px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(168, 85, 247, 0.4);">🖥️</div>
-            <div>
-                <div style="font-weight: 700; font-size: 1.15rem; color: #fff; display: flex; align-items: center; gap: 0.6rem;">
-                    AI141 GPU Server (Ліцей 141)
-                    <span class="status-pill" id="ai141-home-pill" style="font-size: 0.72rem;">🟢 Онлайн</span>
-                </div>
-                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">2x NVIDIA RTX 5060 Ti • Шкільний сервер LLM, Vision та SLAM</div>
-            </div>
-        </div>
-        <div style="display: flex; gap: 0.75rem; align-items: center;">
-            <button class="btn btn-up" onclick="switchTab('ai141')">🖥️ Відкрити AI141 Lab ↗</button>
-            <a href="https://gpt.ai141.pp.ua" target="_blank" class="btn btn-logs" style="text-decoration: none;">🤖 OpenWebUI ↗</a>
-        </div>
-    </div>
-
-    <!-- Docker Containers Table -->
-    <div class="panel-card">
-        <h3>🐳 Активні Docker контейнери</h3>
-        <div class="table-responsive">
-            <table class="custom-table" id="containers-table">
-                <thead>
-                    <tr>
-                        <th>Контейнер</th>
-                        <th>Статус</th>
-                        <th>CPU %</th>
-                        <th>Пам'ять (RAM)</th>
-                        <th>Образ</th>
-                        <th style="text-align: right;">Дії</th>
-                    </tr>
-                </thead>
-                <tbody id="containers-tbody">
-                    <tr>
-                        <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">Опитування контейнерів...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+    <div class="panel-card" style="text-align: center; padding: 3rem 1.5rem; margin-bottom: 2rem;">
+        <div style="font-size: 3.5rem; margin-bottom: 1rem;">🛰️</div>
+        <h3 style="margin-bottom: 0.75rem; color: #fff; font-size: 1.35rem;">Метрики хостів та Docker-контейнерів перенесено в Beszel</h3>
+        <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto 1.75rem auto; line-height: 1.6;">
+            Централізований дашборд Beszel Hub моніторить ресурси Monica та Synology DS224+, диски, пам'ять, історію навантаження та всі активні контейнери Docker у реальному часі зі сповіщеннями в Telegram.
+        </p>
+        <a href="https://beszel.rmn.pp.ua" target="_blank" class="btn btn-up" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.75rem; font-size: 1.05rem;">
+            🛰️ Відкрити Beszel Hub ↗
+        </a>
     </div>
 </div>
 
@@ -1135,7 +1016,7 @@
 </div>
 
 <!-- TAB 2: CI/CD SERVICES (DOCKER COMPOSE) -->
-<div class="tab-content" id="tab-content-compose">
+<div class="tab-content active" id="tab-content-compose">
     <div class="section-header">
         <div>
             <h2>🛠 Docker Compose Сервіси</h2>
